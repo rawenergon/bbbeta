@@ -9,17 +9,29 @@ BB (Breaking Bad OS) is an open-source, browser-based operating system built wit
 ## Features
 
 🖥️ Turns your browser into a fake operating system that somehow feels real
+
 ⚡ Windows-inspired taskbar and  because every OS needs one
+
 🚀 Launcher fast enough to open apps you probably don’t need
+
 📦 Built-in apps included so you can pretend this is an actual computer
+
 🎨 Theme engine for changing the vibe every 5 minutes
+
 💾 Saves your settings locally because losing customization hurts
+
 🌐 Runs entirely in the browser — your PC is now hosting another PC
+
 🧩 Lightweight enough to not destroy your RAM instantly
+
 🔄 Service worker support for extra “wait this is actually good” moments
+
 🛠️ Built with pure HTML, CSS, and JavaScript — no giant frameworks and vive coding
+
 ☁️ No installation required, just open the link and start clicking random things
+
 🔓 Open source, so you can break it, fix it, and call it innovation
+
 🧠 90% operating system vibes, 10% controlled chaos
 
 ## Built-In Apps
@@ -152,6 +164,5 @@ If a dedicated license file is added to the repository, refer to that file for o
 
 BB OS is inspired by mac and desktop operating systems and built entirely with standard web technologies.
 Codex Web for Solving and deploying Issue.
-Chatgpt for Prompt amplification.
 
-Created as a lightweight experimental web OS focused on customization, simplicity, and performance.
+Chatgpt for Prompt amplification.
