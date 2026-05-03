@@ -347,7 +347,7 @@ async function startup() {
 			const end = performance.now();
 
 			rllog(
-				`You are using \n\n%cNovaOS%c\n%cNovaOS is the web system made for you.%c\n\nStartup: ${(end - start).toFixed(2)}ms\nUsername: ${CurrentUsername}\n12hr Time format: ${timetypecondition}`,
+				`You are using \n\n%cBB OS%c\n%cBB OS is the web system made for you.%c\n\nStartup: ${(end - start).toFixed(2)}ms\nUsername: ${CurrentUsername}\n12hr Time format: ${timetypecondition}`,
 				'color: white; background-color: #101010; font-size: 2rem; padding: 0.7rem 1rem; border-radius: 1rem;',
 				'',
 				'padding:5px 0; padding-top:1rem;',
@@ -402,7 +402,7 @@ async function openn() {
 		gid("appdmod").close();
 		let choicetoreinst = await justConfirm(
 			`Re-initialize OS?`,
-			`Did the OS initialization fail? If yes, we can re-initialize your OS and install all the default apps. \n\nNovaOS did not find any apps while the initial load of Nova Menu. \n\nRe-initializing your OS may delete your data.`
+			`Did the OS initialization fail? If yes, we can re-initialize your OS and install all the default apps. \n\nBB OS did not find any apps while the initial load of the BB OS menu. \n\nRe-initializing your OS may delete your data.`
 		);
 		if (choicetoreinst) {
 			initializeOS();
@@ -1005,7 +1005,7 @@ async function registerApp(appId, capabilities) {
 	}
 
 	if (!initialization)
-		notify(await getFileNameByID(appId) + " installed", "Registered " + capabilities.toString(), "NovaOS System");
+		notify(await getFileNameByID(appId) + " installed", "Registered " + capabilities.toString(), "BB OS System");
 	return capabilities.toString();
 }
 
@@ -1779,7 +1779,7 @@ function runAsOSL(content) {
 			border: none;
 		}
 	</style>`;
-	openwindow("Nova OSL Runner", cont);
+	openwindow("BB OS OSL Runner", cont);
 }
 function runAsWasm(content) {
 	const wasmBytes = new Uint8Array(content);
@@ -1800,7 +1800,7 @@ function runAsWasm(content) {
 		}
 	`;
 	div.appendChild(script);
-	openwindow("Nova Wasm Runner", div.innerHTML);
+	openwindow("BB OS Wasm Runner", div.innerHTML);
 }
 
 (async () => {
