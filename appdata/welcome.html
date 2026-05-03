@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Tic Tac Toe</title>
+  <meta name="capabilities" content="NovaOSTicTacToe">
+  <meta name="permissions" content="unsandboxed">
+  <meta name="nova-include" content="material-symbols-rounded nova.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: "Poppins", sans-serif;
+      background: #101010;
+      color: white;
+      user-select: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    main {
+      width: 100%;
+      max-width: 430px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin: 0;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    p {
+      margin: 0.4rem 0 1rem;
+      color: #aaa;
+      font-size: 0.92rem;
+    }
+
+    .status-box {
+      margin: 1rem 0;
+      padding: 0.9rem 1rem;
+      border: 1px solid #2d2d2d;
+      border-radius: 1.2rem;
+      background: #181818;
+      box-shadow: 0 8px 20px #00000066;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-box span {
+      color: #aaa;
+    }
+
+    #status {
+      color: #96ea6e;
+      font-weight: 800;
+    }
+
+    .board {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      padding: 0.8rem;
+      box-sizing: border-box;
+      background: #151515;
+      border: 1px solid #2f2f2f;
+      border-radius: 1.5rem;
+      box-shadow: 0 10px 25px #0000008f;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.7rem;
+    }
+
+    .cell {
+      border-radius: 1rem;
+      background: #1f1f1f;
+      border: 1px solid #333;
+      color: white;
+      font-size: clamp(2.5rem, 13vw, 4.5rem);
+      font-weight: 900;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: 0.18s ease;
+      box-shadow: inset 0 0 0 1px #ffffff05;
+    }
+
+    .cell:hover,
+    .cell.selected {
+      background: #252525;
+      border-color: #96ea6e;
+      transform: scale(0.98);
+    }
+
+    .cell.x {
+      color: #96ea6e;
+      text-shadow: 0 0 18px #96ea6e44;
+    }
+
+    .cell.o {
+      color: #a3b1ff;
+      text-shadow: 0 0 18px #a3b1ff44;
+    }
+
+    .cell.win {
+      background: #96ea6e;
+      color: #101010;
+      border-color: #a6ff91;
+      box-shadow: 0 0 25px #96ea6e55;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.9rem 1.4rem;
+      border: none;
+      border-radius: 999px;
+      background: #96ea6e;
+      color: #101010;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0 8px 20px #96ea6e22;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Tic Tac Toe</h1>
+    <p>Use touch/click, or arrow keys + Enter to play.</p>
+
+    <div class="status-box">
+      <span>Current Turn</span>
+      <strong id="status">Player X</strong>
+    </div>
+
+    <div class="board" id="board"></div>
+
+    <button onclick="restartGame()">Restart Game</button>
+  </main>
+
+  <script>
+    const board = document.getElementById("board");
+    const statusText = document.getElementById("status");
+
+    let cells = Array(9).fill("");
+    let currentPlayer = "X";
+    let selectedIndex = 0;
+    let gameActive = true;
+
+    const winningCombos = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6]
+    ];
+
+    function createBoard() {
+      board.innerHTML = "";
+
+      cells.forEach((value, index) => {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+
+        if (value === "X") cell.classList.add("x");
+        if (value === "O") cell.classList.add("o");
+        if (index === selectedIndex) cell.classList.add("selected");
+
+        cell.textContent = value;
+        cell.onclick = () => makeMove(index);
+
+        board.appendChild(cell);
+      });
+    }
+
+    function makeMove(index) {
+      if (!gameActive || cells[index] !== "") return;
+
+      cells[index] = currentPlayer;
+
+      const winner = checkWinner();
+
+      if (winner) {
+        statusText.textContent = "Player " + currentPlayer + " Wins";
+        highlightWinner(winner);
+        gameActive = false;
+        return;
+      }
+
+      if (!cells.includes("")) {
+        statusText.textContent = "Draw Game";
+        gameActive = false;
+        createBoard();
+        return;
+      }
+
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+      statusText.textContent = "Player " + currentPlayer;
+      createBoard();
+    }
+
+    function checkWinner() {
+      for (let combo of winningCombos) {
+        const [a, b, c] = combo;
+
+        if (
+          cells[a] &&
+          cells[a] === cells[b] &&
+          cells[a] === cells[c]
+        ) {
+          return combo;
+        }
+      }
+
+      return null;
+    }
+
+    function highlightWinner(combo) {
+      createBoard();
+
+      const allCells = document.querySelectorAll(".cell");
+
+      combo.forEach(index => {
+        allCells[index].classList.add("win");
+      });
+    }
+
+    function restartGame() {
+      cells = Array(9).fill("");
+      currentPlayer = "X";
+      selectedIndex = 0;
+      gameActive = true;
+      statusText.textContent = "Player X";
+      createBoard();
+    }
+
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "ArrowRight") {
+        selectedIndex = (selectedIndex + 1) % 9;
+        createBoard();
+      }
+
+      if (event.key === "ArrowLeft") {
+        selectedIndex = (selectedIndex + 8) % 9;
+        createBoard();
+      }
+
+      if (event.key === "ArrowDown") {
+        selectedIndex = (selectedIndex + 3) % 9;
+        createBoard();
+      }
+
+      if (event.key === "ArrowUp") {
+        selectedIndex = (selectedIndex + 6) % 9;
+        createBoard();
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        makeMove(selectedIndex);
+      }
+    });
+
+    createBoard();
+  </script>
+</body>
+</html>
