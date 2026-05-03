@@ -10,6 +10,97 @@ var batteryLevel, winds = {}, memory = {}, _nowapp, fulsapp = false, appsHistory
 	"studio"
 ], timeFormat, timetypecondition = true, genTaskBar, genDesktop, nonotif;
 
+const TASKBAR_UI_CONFIG = {
+	alignment: "center",
+	respectNovaNavAlignmentSetting: true
+};
+
+function normalizeTaskbarAlignment(value) {
+	const align = String(value || TASKBAR_UI_CONFIG.alignment).toLowerCase();
+	if (["left", "start", "flex-start"].includes(align)) return "left";
+	if (["right", "end", "flex-end"].includes(align)) return "right";
+	return "center";
+}
+
+function applyTaskbarLayout(navSettings = {}) {
+	const nav = document.getElementById("novanav");
+	if (!nav) return;
+
+	const configuredAlignment = TASKBAR_UI_CONFIG.respectNovaNavAlignmentSetting && navSettings?.align
+		? navSettings.align
+		: TASKBAR_UI_CONFIG.alignment;
+
+	nav.dataset.taskbarAlign = normalizeTaskbarAlignment(configuredAlignment);
+}
+
+function getTaskbarActiveWindowId() {
+	const visibleWindows = Object.entries(winds)
+		.filter(([winID, data]) => data.visualState !== "hidden" && data.visualState !== "minimized" && document.getElementById("window" + winID));
+
+	if (!visibleWindows.length) return "";
+	if (visibleWindows.some(([winID]) => winID === nowapp)) return nowapp;
+
+	return visibleWindows
+		.sort(([, a], [, b]) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0][0];
+}
+
+function refreshTaskbarStates() {
+	const activeWindowId = getTaskbarActiveWindowId();
+	const runningAppIds = new Set(Object.values(winds).map(win => String(win.appid || "")));
+	const activeAppId = activeWindowId ? String(winds[activeWindowId]?.appid || "") : "";
+
+	document.querySelectorAll("#dock .app-shortcut").forEach(shortcut => {
+		const appId = String(shortcut.dataset.appid || shortcut.getAttribute("unid") || "");
+		const isRunning = appId && runningAppIds.has(appId);
+		shortcut.classList.toggle("is-pinned-running", isRunning);
+		shortcut.classList.toggle("is-active", isRunning && appId === activeAppId);
+		shortcut.classList.remove("is-minimized");
+	});
+
+	document.querySelectorAll("#nowrunninapps .app-shortcut").forEach(shortcut => {
+		const winId = shortcut.getAttribute("winid");
+		const winState = winds[winId]?.visualState;
+		shortcut.classList.toggle("is-running", Boolean(winds[winId]));
+		shortcut.classList.toggle("is-active", winId === activeWindowId);
+		shortcut.classList.toggle("is-minimized", winState === "minimized");
+	});
+}
+
+function findRunningWindowByAppId(appId) {
+	const matches = Object.entries(winds)
+		.filter(([, data]) => String(data.appid || "") === String(appId) && data.visualState !== "hidden")
+		.sort(([, a], [, b]) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0));
+
+	return matches[0]?.[0] || "";
+}
+
+function activateTaskbarWindow(winId) {
+	const winEl = document.getElementById("window" + winId);
+	if (!winEl || !winds[winId]) return;
+
+	if (winId === getTaskbarActiveWindowId() && winds[winId].visualState !== "minimized") {
+		minim(winId);
+		setTimeout(refreshTaskbarStates, 130);
+		return;
+	}
+
+	if (winds[winId].visualState === "minimized") {
+		minim(winId);
+	}
+	putwinontop("window" + winId);
+	nowapp = winId;
+	refreshTaskbarStates();
+}
+
+function activateTaskbarApp(appId) {
+	const runningWindowId = findRunningWindowByAppId(appId);
+	if (runningWindowId) {
+		activateTaskbarWindow(runningWindowId);
+		return;
+	}
+	openfile(appId);
+}
+
 let currentImage = 1;
 function setbgimagetourl(x) {
 	const img1 = document.getElementById('bgimage1');
@@ -69,6 +160,7 @@ Object.defineProperty(window, 'nowapp', {
 	},
 	set(value) {
 		_nowapp = value;
+		if (typeof requestAnimationFrame === "function") requestAnimationFrame(refreshTaskbarStates);
 	}
 });
 
@@ -667,7 +759,10 @@ function putwinontop(x) {
 	} else {
 		document.getElementById(x).style.zIndex = 0;
 	}
+	const focusedWindowId = x.replace(/^window/, '');
+	if (winds[focusedWindowId]) nowapp = focusedWindowId;
 	if (typeof updateFocusedWindowBorder === "function") updateFocusedWindowBorder();
+	refreshTaskbarStates();
 }
 function isWinOnTop(x) {
 	const ourKey = x.replace(/^window/, '');
@@ -1117,11 +1212,11 @@ async function loadtaskspanel() {
 		appShortcutDiv.setAttribute("unid", app);
 		appShortcutDiv.dataset.key = key;
 		appShortcutDiv.setAttribute("winid", wid);
+		appShortcutDiv.dataset.appid = winds[wid]?.appid || "";
 		appShortcutDiv.dataset.addedAt = performance.now();
 
 		appShortcutDiv.addEventListener("click", () => {
-			putwinontop('window' + wid);
-			minim(wid);
+			activateTaskbarWindow(wid);
 		});
 
 		let iconSpan = document.createElement("span");
@@ -1136,6 +1231,8 @@ async function loadtaskspanel() {
 		appShortcutDiv.appendChild(tooltip);
 		appbarelement.appendChild(appShortcutDiv);
 	}
+
+	refreshTaskbarStates();
 
 	let visibleShortcuts = appbarelement.querySelectorAll(".app-shortcut");
 	if (visibleShortcuts.length === 1) {
@@ -1157,6 +1254,7 @@ function tryRemoveElement(element, key) {
 	setTimeout(() => {
 		if (element.parentNode) element.parentNode.removeChild(element);
 		removalQueue.delete(key);
+		refreshTaskbarStates();
 	}, 500);
 }
 
@@ -1733,11 +1831,13 @@ async function realgenTaskBar() {
 		if (NovNavCtrl.bg) {
 			gid("novanav").style.backgroundColor = "transparent";
 		} else {
-			gid("novanav").style.backgroundColor = "var(--col-bg1)";
+			gid("novanav").style.backgroundColor = "transparent";
 		}
 
-		gid("novanav").style.justifyContent = NovNavCtrl.align;
-	} catch (e) { }
+		applyTaskbarLayout(NovNavCtrl);
+	} catch (e) {
+		applyTaskbarLayout();
+	}
 
 	var appbarelement = document.getElementById("dock");
 	appbarelement.innerHTML = "<span class='taskbarloader' id='taskbarloaderprime'></span>";
@@ -1769,6 +1869,7 @@ async function realgenTaskBar() {
 				appShortcutDiv.setAttribute("draggable", true);
 				appShortcutDiv.setAttribute("ondragstart", "dragfl(event, this)");
 				appShortcutDiv.setAttribute("unid", app.id || '');
+				appShortcutDiv.dataset.appid = app.id || '';
 				appShortcutDiv.className = "app-shortcut ctxAvail tooltip adock sizableuielement";
 
 				let lnkappidcatched = app.id;
@@ -1811,11 +1912,12 @@ async function realgenTaskBar() {
 					await getAppIcon(0, app.id, 0)
 						.then(icon => iconSpan.innerHTML = icon)
 						.catch(error => console.error(error));
-					appShortcutDiv.addEventListener("click", () => openfile(app.id));
+					appShortcutDiv.addEventListener("click", () => activateTaskbarApp(app.id));
 				}
 
 			});
 			gid("dock").style.display = "flex";
+			refreshTaskbarStates();
 
 		} catch (err) {
 			console.log(err)

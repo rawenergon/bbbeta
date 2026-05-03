@@ -88,31 +88,53 @@ nav {
 	z-index: 99;
 	display: grid;
 	user-select: none;
-	justify-content: center;
+	justify-content: var(--taskbar-pack, center);
 	align-items: center;
 	height: fit-content;
-	padding: var(--spacing-normal);
+	padding: 0 var(--taskbar-edge, 14px) 12px;
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	pointer-events: none;
+	--taskbar-pack: center;
+	--taskbar-edge: 14px;
+	--taskbar-height: 58px;
+	--taskbar-icon-size: 42px;
+	--taskbar-gap: 7px;
+	--taskbar-radius: 18px;
 }
 
 nav .flodiv {
-	display: flex;
+	display: grid;
+	grid-template-columns: auto minmax(0, auto) auto;
 	justify-content: center;
-	align-items: stretch;
+	align-items: center;
 	flex-direction: row;
-	border-radius: var(--siz-radius1);
-	background: transparent;
-	padding: 1px;
-	animation: pop .5s;
-	gap: var(--spacing-normal);
+	border-radius: var(--taskbar-radius);
+	background: var(--col-bg1);
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--col-bg2) 72%, transparent), color-mix(in srgb, var(--col-bg1) 82%, transparent)),
+		color-mix(in srgb, var(--col-bg1) 62%, transparent);
+	border: 1px solid color-mix(in srgb, var(--col-txt1) 13%, transparent);
+	box-shadow: 0 18px 42px #0000004f, inset 0 1px 0 #ffffff18;
+	backdrop-filter: blur(22px) saturate(145%);
+	-webkit-backdrop-filter: blur(22px) saturate(145%);
+	padding: 7px;
+	animation: taskbarFloat .38s cubic-bezier(.2, .8, .2, 1);
+	gap: 8px;
+	min-height: var(--taskbar-height);
+	max-width: min(calc(100vw - 24px), 980px);
+	pointer-events: auto;
 }
 
 nav [navobj] {
-	padding: 3px;
-	border-radius: var(--siz-radius1);
-	background-color: var(--col-bg1);
+	padding: 0;
+	border-radius: calc(var(--taskbar-radius) - 8px);
+	background-color: transparent;
 	display: flex;
 	justify-content: center;
-	gap: 3px;
+	gap: var(--taskbar-gap);
 	align-items: center;
 	flex-direction: row;
 	transition: flex-basis var(----time1), width var(----time1), opacity var(----time1);
@@ -120,13 +142,89 @@ nav [navobj] {
 	min-width: 1.8rem;
 }
 
+#novanav[data-taskbar-align="left"] {
+	--taskbar-pack: start;
+}
+
+#novanav[data-taskbar-align="center"] {
+	--taskbar-pack: center;
+}
+
+#novanav[data-taskbar-align="right"] {
+	--taskbar-pack: end;
+}
+
+.taskbar-zone {
+	min-height: calc(var(--taskbar-height) - 14px);
+}
+
+.taskbar-zone-left,
+.taskbar-zone-apps,
+.taskbar-zone-tray,
+#dock,
+#nowrunninapps {
+	display: flex;
+	align-items: center;
+	gap: var(--taskbar-gap);
+}
+
+.taskbar-zone-left,
+.taskbar-zone-tray {
+	padding: 0 3px;
+}
+
+.taskbar-zone-apps {
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: visible;
+	scrollbar-width: none;
+}
+
+.taskbar-zone-apps::-webkit-scrollbar {
+	display: none;
+}
+
+.taskbar-zone-tray {
+	margin-left: 4px;
+	padding-left: 8px;
+	border-left: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+}
+
+#dock:empty,
+#nowrunninapps:empty {
+	display: none;
+}
+
+@keyframes taskbarFloat {
+	from {
+		opacity: 0;
+		transform: translateY(14px) scale(.98);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
 .navmalobj {
-	margin: 5px 7px;
+	margin: 0;
 	text-align: center;
 	font-size: 11px;
 	display: flex;
 	align-items: center;
 	flex-direction: column;
+	justify-content: center;
+	min-height: var(--taskbar-icon-size);
+	min-width: 54px;
+	padding: 4px 9px;
+	border-radius: 12px;
+	transition: background-color .18s ease, transform .18s ease;
+	white-space: nowrap;
+}
+
+.navmalobj:hover {
+	background-color: color-mix(in srgb, var(--col-txt1) 9%, transparent);
 }
 
 #battery-display {
@@ -141,6 +239,8 @@ nav [navobj] {
 
 #date-display {
 	display: block;
+	opacity: .62;
+	font-size: 10px;
 }
 
 [navobj] [app-shortcut] {
@@ -255,29 +355,49 @@ nav [navobj] {
 
 .app-shortcut {
 	background-color: transparent;
-	border-radius: var(--siz-radius1);
-	padding: 10px;
+	border-radius: 13px;
+	padding: 0;
 	cursor: pointer;
-	width: 70px;
-	animation: pop var(--time1);
-	display: inline-block;
+	width: var(--taskbar-icon-size, 42px);
+	height: var(--taskbar-icon-size, 42px);
+	animation: taskbarItemIn .26s cubic-bezier(.2, .8, .2, 1);
+	display: inline-flex;
 	border: 1px solid transparent;
 	text-align: center;
-	align-self: flex-start;
+	align-self: center;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	overflow: visible;
+	touch-action: manipulation;
+	transition:
+		transform .18s cubic-bezier(.2, .8, .2, 1),
+		background-color .18s ease,
+		border-color .18s ease,
+		box-shadow .18s ease;
 }
 
 .app-shortcut.tooltip .tooltiptext {
-	background-color: var(--col-bg2);
-	border-radius: var(--siz-radius1);
-	bottom: 9% !important;
-	opacity: 1;
+	background-color: color-mix(in srgb, var(--col-bg2) 88%, transparent);
+	border: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+	box-shadow: 0 10px 30px #00000055;
+	backdrop-filter: blur(16px) saturate(140%);
+	-webkit-backdrop-filter: blur(16px) saturate(140%);
+	border-radius: 10px;
+	bottom: calc(100% + 11px) !important;
+	opacity: 0;
 	word-break: normal;
-	transform: scale(0.9) translateX(-4px);
+	transform: translateY(5px) scale(.96);
+	pointer-events: none;
+	padding: 6px 9px;
+	font-size: 12px;
+	white-space: nowrap;
+	transition: opacity .16s ease, transform .16s ease;
 }
 
 .app-shortcut.tooltip:hover .tooltiptext {
-	transition: var(----time1);
-	transform: scale(1) translateX(-4px);
+	opacity: 1;
+	transform: translateY(0) scale(1);
 }
 
 .app-shortcut span {
@@ -289,10 +409,19 @@ nav [navobj] {
 }
 
 .app-shortcut span svg {
-	width: 29px;
-	height: 29px;
-	animation: pop var(--time2);
+	width: 27px;
+	height: 27px;
+	animation: appIconPop .24s cubic-bezier(.2, .8, .2, 1);
 	overflow: hidden;
+}
+
+.app-shortcut[aria-label="Nova menu"] span,
+.app-shortcut[aria-label="Search"] span,
+.app-shortcut span.material-symbols-rounded {
+	font-size: 24px;
+	width: 27px;
+	height: 27px;
+	align-items: center;
 }
 
 @keyframes appop {
@@ -307,11 +436,75 @@ nav [navobj] {
 }
 
 .app-shortcut:hover {
-	background-color: #ffffff17;
+	background-color: color-mix(in srgb, var(--col-txt1) 11%, transparent);
+	border-color: color-mix(in srgb, var(--col-txt1) 10%, transparent);
+	box-shadow: inset 0 1px 0 #ffffff17, 0 8px 24px #00000026;
+	transform: translateY(-4px) scale(1.06);
 }
 
 .app-shortcut:active {
-	cursor: grabbing;
+	cursor: pointer;
+	transform: translateY(-1px) scale(.96);
+}
+
+.app-shortcut.is-running::after,
+.app-shortcut.is-pinned-running::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: 3px;
+	width: 5px;
+	height: 5px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--col-txt1) 72%, var(--col-bgh));
+	box-shadow: 0 0 10px color-mix(in srgb, var(--col-bgh) 70%, transparent);
+	transform: translateX(-50%);
+	transition: width .2s ease, background-color .2s ease;
+}
+
+.app-shortcut.is-active {
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--col-bgh) 24%, transparent), color-mix(in srgb, var(--col-txt1) 8%, transparent));
+	border-color: color-mix(in srgb, var(--col-bgh) 42%, transparent);
+	box-shadow: inset 0 1px 0 #ffffff1c, 0 10px 28px color-mix(in srgb, var(--col-bgh) 18%, transparent);
+}
+
+.app-shortcut.is-active::after {
+	width: 18px;
+	height: 4px;
+	background: var(--col-bgh);
+}
+
+.app-shortcut.is-minimized {
+	opacity: .72;
+}
+
+.app-shortcut.is-minimized::after {
+	opacity: .58;
+}
+
+@keyframes taskbarItemIn {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(.85);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes appIconPop {
+	from {
+		opacity: 0;
+		transform: scale(.8);
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
 
 .app-shortcut .app-icon {
@@ -722,6 +915,152 @@ nav [navobj] {
 	cursor: pointer;
 }
 
+#novanav .app-shortcut {
+	background-color: transparent;
+	border-radius: 13px;
+	padding: 0;
+	cursor: pointer;
+	width: var(--taskbar-icon-size, 42px);
+	height: var(--taskbar-icon-size, 42px);
+	animation: taskbarItemIn .26s cubic-bezier(.2, .8, .2, 1);
+	display: inline-flex;
+	border: 1px solid transparent;
+	text-align: center;
+	align-self: center;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	overflow: visible;
+	touch-action: manipulation;
+	transition:
+		transform .18s cubic-bezier(.2, .8, .2, 1),
+		background-color .18s ease,
+		border-color .18s ease,
+		box-shadow .18s ease;
+}
+
+#novanav .app-shortcut span {
+	overflow: hidden;
+	padding: 0;
+	display: flex;
+	border-radius: 5px;
+	justify-content: center;
+}
+
+#novanav .app-shortcut span svg {
+	width: 27px;
+	height: 27px;
+	animation: appIconPop .24s cubic-bezier(.2, .8, .2, 1);
+	overflow: hidden;
+}
+
+#novanav .app-shortcut[aria-label="Nova menu"] span,
+#novanav .app-shortcut[aria-label="Search"] span,
+#novanav .app-shortcut span.material-symbols-rounded {
+	font-size: 24px;
+	width: 27px;
+	height: 27px;
+	align-items: center;
+}
+
+#novanav .app-shortcut:hover {
+	background-color: color-mix(in srgb, var(--col-txt1) 11%, transparent);
+	border-color: color-mix(in srgb, var(--col-txt1) 10%, transparent);
+	box-shadow: inset 0 1px 0 #ffffff17, 0 8px 24px #00000026;
+	transform: translateY(-4px) scale(1.06);
+}
+
+#novanav .app-shortcut:active {
+	cursor: pointer;
+	transform: translateY(-1px) scale(.96);
+}
+
+#novanav .app-shortcut.is-running::after,
+#novanav .app-shortcut.is-pinned-running::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: 3px;
+	width: 5px;
+	height: 5px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--col-txt1) 72%, var(--col-bgh));
+	box-shadow: 0 0 10px color-mix(in srgb, var(--col-bgh) 70%, transparent);
+	transform: translateX(-50%);
+	transition: width .2s ease, background-color .2s ease;
+}
+
+#novanav .app-shortcut.is-active {
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--col-bgh) 24%, transparent), color-mix(in srgb, var(--col-txt1) 8%, transparent));
+	border-color: color-mix(in srgb, var(--col-bgh) 42%, transparent);
+	box-shadow: inset 0 1px 0 #ffffff1c, 0 10px 28px color-mix(in srgb, var(--col-bgh) 18%, transparent);
+}
+
+#novanav .app-shortcut.is-active::after {
+	width: 18px;
+	height: 4px;
+	background: var(--col-bgh);
+}
+
+#novanav .app-shortcut.is-minimized {
+	opacity: .72;
+}
+
+#novanav .app-shortcut.is-minimized::after {
+	opacity: .58;
+}
+
+.app-shortcut {
+	background-color: transparent;
+	border-radius: var(--siz-radius1);
+	padding: 10px;
+	cursor: pointer;
+	width: 70px;
+	animation: pop var(--time1);
+	display: inline-block;
+	border: 1px solid transparent;
+	text-align: center;
+	align-self: flex-start;
+}
+
+.app-shortcut.tooltip .tooltiptext {
+	background-color: var(--col-bg2);
+	border-radius: var(--siz-radius1);
+	bottom: 9% !important;
+	opacity: 1;
+	word-break: normal;
+	transform: scale(0.9) translateX(-4px);
+}
+
+.app-shortcut.tooltip:hover .tooltiptext {
+	transition: var(----time1);
+	transform: scale(1) translateX(-4px);
+}
+
+.app-shortcut span {
+	overflow: hidden;
+	padding: 0;
+	display: flex;
+	border-radius: 5px;
+	justify-content: center;
+}
+
+.app-shortcut span svg {
+	width: 29px;
+	height: 29px;
+	animation: pop var(--time2);
+	overflow: hidden;
+}
+
+.app-shortcut:hover {
+	background-color: #ffffff17;
+}
+
+.app-shortcut:active {
+	cursor: grabbing;
+}
+
 .notifbtn:hover {
 	opacity: 1;
 	transform: scale(0.9);
@@ -804,6 +1143,33 @@ nav [navobj] {
 .tooltip:hover .tooltiptext {
 	visibility: visible;
 	animation: tooltipAnim 0.2s;
+}
+
+#novanav .app-shortcut.tooltip .tooltiptext {
+	visibility: hidden;
+	width: max-content;
+	min-width: 0;
+	max-width: 160px;
+	background-color: color-mix(in srgb, var(--col-bg2) 88%, transparent);
+	border: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+	box-shadow: 0 10px 30px #00000055;
+	backdrop-filter: blur(16px) saturate(140%);
+	-webkit-backdrop-filter: blur(16px) saturate(140%);
+	border-radius: 10px;
+	bottom: calc(100% + 11px) !important;
+	left: 50%;
+	opacity: 0;
+	padding: 6px 9px;
+	font-size: 12px;
+	white-space: nowrap;
+	transform: translate(-50%, 5px) scale(.96) !important;
+	transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+
+#novanav .app-shortcut.tooltip:hover .tooltiptext {
+	visibility: visible;
+	opacity: 1;
+	transform: translate(-50%, 0) scale(1) !important;
 }
 
 #bios {
@@ -1388,15 +1754,19 @@ codeblock {
 	margin: 0;
 	display: flex;
 	justify-content: center;
-	height: 39px;
-	width: 39px;
+	height: var(--taskbar-icon-size, 42px);
+	width: var(--taskbar-icon-size, 42px);
 	aspect-ratio: 1 / 1;
 	overflow: visible;
-	border-radius: 6px;
+	border-radius: 13px;
 }
 
 .adock .tooltiptext {
-	transform: translateY(-42px) !important;
+	transform: translateY(5px) scale(.96) !important;
+}
+
+.adock:hover .tooltiptext {
+	transform: translateY(0) scale(1) !important;
 }
 
 dialog iframe {
@@ -1782,13 +2152,42 @@ div#seapppreview {
 	}
 
 	nav {
-		background-color: var(--col-bg1);
-		padding: 6px;
+		background-color: transparent;
+		padding: 0 8px 8px;
 		bottom: 0;
+		--taskbar-icon-size: 40px;
+		--taskbar-gap: 5px;
+		--taskbar-height: 56px;
+	}
+
+	nav .flodiv {
+		width: calc(100vw - 16px);
+		max-width: none;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		padding: 6px;
 	}
 
 	nav [navobj] {
 		background-color: transparent;
+	}
+
+	.taskbar-zone-left {
+		gap: 4px;
+	}
+
+	.taskbar-zone-tray {
+		padding-left: 5px;
+		margin-left: 2px;
+	}
+
+	.navmalobj {
+		min-width: 44px;
+		padding: 3px 6px;
+		font-size: 10px;
+	}
+
+	#battery-p-display {
+		display: none;
 	}
 
 	#appsindeck {

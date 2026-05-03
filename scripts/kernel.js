@@ -580,6 +580,7 @@ function minim(winuid) {
     if (winds[winuid]["visualState"] === "minimized") {
         x.style.display = "flex";
         winds[winuid]["visualState"] = "free";
+        if (typeof refreshTaskbarStates === "function") refreshTaskbarStates();
     } else {
         if (isWinOnTop('window' + winuid)) {
             x.classList.add("transp4");
@@ -589,6 +590,7 @@ function minim(winuid) {
                 x.classList.remove("transp4");
                 x.style.display = "none";
                 nowapp = '';
+                if (typeof refreshTaskbarStates === "function") refreshTaskbarStates();
             }, 100);
         } else {
             putwinontop('window' + winuid);

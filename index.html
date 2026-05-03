@@ -151,24 +151,31 @@
 			</div>
 			<nav id="novanav" class="scalableui">
 				<div class="flodiv">
-					<quicks navobj id="dock">
+					<section navobj class="taskbar-zone taskbar-zone-left" aria-label="System controls">
+						<your class="taskbar-control" onclick="openn()">
+							<biv draggable="true" class="app-shortcut tooltip adock sizableuielement" aria-label="Nova menu">
+								<span ic class="material-symbols-rounded" id="mm">N
+								</span>
+								<span class="tooltiptext">Nova</span>
+							</biv>
+						</your>
+						<your class="taskbar-control" onclick="opensearchpanel()">
+							<biv draggable="true" class="app-shortcut tooltip adock sizableuielement" aria-label="Search">
+								<span ic class="material-symbols-rounded searchbtnac directxicons">
+									search
+								</span>
+								<span class="tooltiptext">Search</span>
+							</biv>
+						</your>
+					</section>
+					<section navobj class="taskbar-zone taskbar-zone-apps" aria-label="Apps">
+						<quicks navobj id="dock">
 
-					</quicks>
-					<your navobj onclick="openn()">
-
-						<biv draggable="true" class="app-shortcut tooltip adock sizableuielement">
-							<span ic class="material-symbols-rounded" id="mm">N
-							</span>
-						</biv>
-					</your>
-					<your navobj onclick="opensearchpanel()">
-						<biv draggable="true" class="app-shortcut tooltip adock sizableuielement">
-							<span ic class="material-symbols-rounded searchbtnac directxicons">
-								search
-							</span>
-						</biv>
-					</your>
-					<info navobj>
+						</quicks>
+						<info navobj id="nowrunninapps">
+						</info>
+					</section>
+					<info navobj class="taskbar-zone taskbar-zone-tray" aria-label="System tray">
 						<div id="batterydisdiv" class="navmalobj">
 							<span id="battery-p-display">
 							</span>
@@ -182,8 +189,6 @@
 								<span id="date-display"></span>
 							</hitbx>
 						</div>
-					</info>
-					<info navobj id="nowrunninapps">
 					</info>
 				</div>
 			</nav>
