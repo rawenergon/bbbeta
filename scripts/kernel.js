@@ -540,10 +540,16 @@ async function openapp(appTitle, external, customtodo, headless = false) {
         try {
             let AppContent;
             if (external === 1) {
-                AppContent = await fetchData(`appdata/${appTitle}.html`);
-                if (!AppContent) return;
-
-                external = await createFile("Apps/", toTitleCase(appTitle), "app", AppContent);
+                const installedApp = await getFileByPath(`Apps/${toTitleCase(appTitle)}.app`);
+                if (installedApp?.id) {
+                    external = installedApp.id;
+                    const installedFile = await getFileById(external);
+                    AppContent = installedFile?.content;
+                } else {
+                    AppContent = await fetchData(`appdata/${appTitle}.html`);
+                    if (!AppContent) return;
+                    external = await createFile("Apps/", toTitleCase(appTitle), "app", AppContent);
+                }
             } else {
                 AppContent = await getFileById(external);
                 if (!appTitle) appTitle = AppContent.fileName;
@@ -571,7 +577,7 @@ async function openapp(appTitle, external, customtodo, headless = false) {
         }
     };
 
-    fetchDataAndSave(appTitle);
+    return await fetchDataAndSave(appTitle);
 }
 
 function minim(winuid) {

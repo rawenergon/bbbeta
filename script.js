@@ -942,8 +942,11 @@ async function extractAndRegisterCapabilities(appId, content) {
 		}
 
 		let permissions = Array.from(new Set([...totalperms, ...requestedperms]));
+		const existingRegistry = await getSetting(appId, "AppRegistry.json") || {};
+		const existingPerms = Array.isArray(existingRegistry.perms) ? existingRegistry.perms : [];
+		const alreadyAllowed = permissions.every(perm => existingPerms.includes(perm));
 
-		if (!onlyDefPerms) {
+		if (!onlyDefPerms && !alreadyAllowed) {
 			let modal = gid("AppInstDia");
 			gid("app_inst_dia_icon").innerHTML = await getAppIcon(0, appId);
 			gid("app_inst_mod_app_name").innerText = await getFileNameByID(appId);

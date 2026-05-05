@@ -24,7 +24,6 @@
 		form { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 10px; border-top: 1px solid #24372f; background: #101820; }
 		input { min-width: 0; background: transparent; border: 0; outline: 0; color: #d7ffe5; font: inherit; }
 		.prompt { color: #70e09b; }
-		kbd { background: #203126; border: 1px solid #314c3d; border-radius: 5px; padding: 1px 5px; color: #d7ffe5; }
 	</style>
 </head>
 
@@ -36,7 +35,7 @@
 		</header>
 		<div id="log"></div>
 		<form id="form">
-			<span class="prompt">bbos&gt;</span>
+			<span class="prompt" id="prompt">bbos:/Desktop&gt;</span>
 			<input id="cmd" autocomplete="off" autofocus spellcheck="false">
 		</form>
 	</div>
@@ -44,10 +43,12 @@
 		const log = document.getElementById("log");
 		const cmd = document.getElementById("cmd");
 		const status = document.getElementById("status");
+		const prompt = document.getElementById("prompt");
+		let cwd = "Desktop/";
 		let history = JSON.parse(localStorage.getItem("bbos.terminal.history") || "[]");
 		let historyIndex = history.length;
 
-		const commandNames = ["help", "apps", "files", "open", "date", "whoami", "theme", "note", "storage", "clear", "about"];
+		const commandNames = ["help", "pwd", "ls", "dir", "cd", "cat", "open", "apps", "files", "mkdir", "touch", "write", "rm", "date", "whoami", "theme", "note", "storage", "clear", "about"];
 
 		function escapeText(text) {
 			return String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -72,29 +73,119 @@
 			return api(...args);
 		}
 
-		async function listFolder(folder) {
+		function normalizeFolder(path = cwd) {
+			let raw = String(path || cwd).trim();
+			if (raw === "/" || raw === "") return "";
+			raw = raw.replace(/\\/g, "/");
+			const parts = raw.startsWith("/") ? [] : cwd.split("/").filter(Boolean);
+			for (const part of raw.split("/")) {
+				if (!part || part === ".") continue;
+				if (part === "..") parts.pop();
+				else parts.push(part);
+			}
+			return parts.length ? parts.join("/") + "/" : "";
+		}
+
+		function resolvePath(path = "") {
+			const raw = String(path || "").replace(/\\/g, "/").trim();
+			if (!raw || raw === ".") return { folder: cwd, name: "" };
+			if (raw.endsWith("/") || raw === ".." || raw === "/") return { folder: normalizeFolder(raw), name: "" };
+			const base = raw.startsWith("/") ? "" : cwd;
+			const parts = (base + raw).split("/").filter(Boolean);
+			const name = parts.pop() || "";
+			return { folder: parts.length ? parts.join("/") + "/" : "", name };
+		}
+
+		function updatePrompt() {
+			prompt.textContent = `bbos:/${cwd || ""}>`;
+		}
+
+		function decodeContent(content) {
+			if (!content) return "";
+			if (content.startsWith("data:")) {
+				const comma = content.indexOf(",");
+				const meta = content.slice(0, comma);
+				const payload = content.slice(comma + 1);
+				if (meta.includes(";base64")) {
+					try { return decodeURIComponent(escape(atob(payload))); } catch { return atob(payload); }
+				}
+				return decodeURIComponent(payload);
+			}
+			try { return atob(content); } catch { return content; }
+		}
+
+		async function listFolder(folder = cwd) {
+			const normalized = normalizeFolder(folder);
+			const files = await parentCall("getFileNamesByFolder", normalized);
+			if (!files || files.length === 0) return `${normalized || "/"} is empty.`;
+			return files.map(file => `${file.id ? "file" : "dir "}  ${file.name}`).join("\n");
+		}
+
+		async function changeDir(path) {
+			const next = normalizeFolder(path || "");
+			await parentCall("getFileNamesByFolder", next);
+			cwd = next;
+			updatePrompt();
+			return `/${cwd}`;
+		}
+
+		async function catFile(path) {
+			if (!path) return "Usage: cat file.txt";
+			const { folder, name } = resolvePath(path);
 			const files = await parentCall("getFileNamesByFolder", folder);
-			if (!files || files.length === 0) return `${folder || "root"} is empty.`;
-			return files.map(file => `- ${file.name}`).join("\n");
+			const item = files.find(file => file.name.toLowerCase() === name.toLowerCase());
+			if (!item?.id) return `No file: ${path}`;
+			const file = await parentCall("getFileById", item.id);
+			return decodeContent(file.content).slice(0, 8000);
 		}
 
-		async function openApp(name) {
-			if (!name) return "Usage: open browser";
-			await parentCall("openapp", name.toLowerCase().replace(/\s+/g, ""), 1);
-			return `Opening ${name}...`;
+		async function openTarget(path) {
+			if (!path) return "Usage: open browser OR open file.txt";
+			const appName = path.toLowerCase().replace(/\s+/g, "");
+			const apps = await parentCall("getFileNamesByFolder", "Apps");
+			const app = apps.find(file => file.name.toLowerCase() === `${appName}.app` || file.name.toLowerCase() === appName);
+			if (app?.id) {
+				await parentCall("openfile", app.id);
+				return `Opening ${app.name}...`;
+			}
+			const { folder, name } = resolvePath(path);
+			const files = await parentCall("getFileNamesByFolder", folder);
+			const file = files.find(item => item.name.toLowerCase() === name.toLowerCase());
+			if (!file?.id) return `No app or file: ${path}`;
+			await parentCall("openfile", file.id);
+			return `Opening ${file.name}...`;
 		}
 
-		async function readTheme() {
-			const wall = await parentCall("getSetting", "wall").catch(() => "");
-			const smartsearch = await parentCall("getSetting", "smartsearch").catch(() => "");
-			return `Theme settings\n- Wallpaper: ${wall ? "custom" : "default"}\n- Smart search: ${smartsearch ? "on" : "off"}`;
+		async function makeFolder(path) {
+			if (!path) return "Usage: mkdir folder";
+			const next = normalizeFolder(path);
+			await parentCall("createFolder", next);
+			return `Created /${next}`;
 		}
 
-		async function saveNote(text) {
-			if (!text) return "Usage: note remember to submit project";
-			const stamp = new Date().toLocaleString().replace(/[/:]/g, "-");
-			await parentCall("createFile", "Desktop/", `Terminal Note ${stamp}.txt`, "txt", text, { via: "terminal" });
-			return "Saved note to Desktop.";
+		async function touchFile(name) {
+			if (!name) return "Usage: touch file.txt";
+			const { folder, name: fileName } = resolvePath(name);
+			await parentCall("createFile", folder, fileName, fileName.split(".").pop() || "txt", "");
+			return `Created ${fileName}`;
+		}
+
+		async function writeFile(args) {
+			if (args.length < 2) return "Usage: write file.txt hello world";
+			const target = args.shift();
+			const { folder, name } = resolvePath(target);
+			await parentCall("createFile", folder, name, name.split(".").pop() || "txt", args.join(" "));
+			return `Wrote ${name}`;
+		}
+
+		async function removeFile(path) {
+			if (!path) return "Usage: rm file.txt";
+			const { folder, name } = resolvePath(path);
+			const files = await parentCall("getFileNamesByFolder", folder);
+			const file = files.find(item => item.name.toLowerCase() === name.toLowerCase());
+			if (!file?.id) return `No file: ${path}`;
+			await parentCall("remfile", file.id);
+			return `Removed ${file.name}`;
 		}
 
 		function storageInfo() {
@@ -109,33 +200,43 @@
 		const commands = {
 			help: async () => [
 				"Commands:",
-				"  help                  Show this guide",
-				"  apps                  List installed apps",
-				"  files [folder]        List files, example: files Desktop",
-				"  open <app>            Open an app, example: open browser",
-				"  note <text>           Save a text note on Desktop",
-				"  date                  Show date and time",
-				"  whoami                Show current OS user",
-				"  theme                 Show theme details",
-				"  storage               Show local storage usage",
-				"  clear                 Clear terminal"
+				"  pwd                       Print current BB OS folder",
+				"  ls / dir [folder]          List files",
+				"  cd <folder>                Change folder, example: cd Downloads",
+				"  cat <file>                 Print a text file",
+				"  open <app|file>            Open app or file",
+				"  mkdir <folder>             Create folder",
+				"  touch <file>               Create empty file",
+				"  write <file> <text>         Write text file",
+				"  rm <file>                  Remove file",
+				"  apps                       List installed apps",
+				"  date, whoami, theme, storage, clear"
 			].join("\n"),
+			pwd: async () => `/${cwd}`,
+			ls: args => listFolder(args[0] || cwd),
+			dir: args => listFolder(args[0] || cwd),
+			cd: args => changeDir(args[0] || "/"),
+			cat: args => catFile(args.join(" ")),
+			open: args => openTarget(args.join(" ")),
 			apps: () => listFolder("Apps"),
-			files: args => listFolder(args[0] ? args[0].replace(/\/?$/, "/") : "Desktop"),
-			open: args => openApp(args.join(" ")),
+			files: args => listFolder(args[0] || cwd),
+			mkdir: args => makeFolder(args.join(" ")),
+			touch: args => touchFile(args.join(" ")),
+			write: args => writeFile([...args]),
+			rm: args => removeFile(args.join(" ")),
 			date: async () => new Date().toString(),
 			whoami: async () => window.parent.CurrentUsername || "Guest",
-			theme: readTheme,
-			note: args => saveNote(args.join(" ")),
+			theme: async () => `Wallpaper: ${(await parentCall("getSetting", "wall").catch(() => "")) ? "custom" : "default"}`,
+			note: args => writeFile([`Terminal-Note-${Date.now()}.txt`, ...args]),
 			storage: async () => storageInfo(),
-			about: async () => "BB OS is a lightweight browser desktop with local apps, widgets, and offline tools."
+			about: async () => "BB OS Terminal navigates the same virtual files used by the Files app."
 		};
 
 		async function runCommand(raw) {
 			const parts = raw.trim().split(/\s+/);
 			const name = (parts.shift() || "").toLowerCase();
 			if (!name) return;
-			print(`bbos> ${raw}`, "promptline");
+			print(`${prompt.textContent} ${raw}`, "promptline");
 			if (name === "clear") {
 				log.innerHTML = "";
 				return;
@@ -147,8 +248,7 @@
 			}
 			try {
 				setStatus("working");
-				const result = await handler(parts);
-				print(result, "good");
+				print(await handler(parts), "good");
 			} catch (error) {
 				print(error.message || String(error), "error");
 			}
@@ -179,13 +279,15 @@
 			}
 			if (event.key === "Tab") {
 				event.preventDefault();
-				const match = commandNames.find(name => name.startsWith(cmd.value.toLowerCase()));
-				if (match) cmd.value = match + " ";
+				const first = cmd.value.split(/\s+/)[0].toLowerCase();
+				const match = commandNames.find(name => name.startsWith(first));
+				if (match) cmd.value = match + (cmd.value.includes(" ") ? cmd.value.slice(first.length) : " ");
 			}
 		});
 
+		updatePrompt();
 		print("BB OS Terminal", "good");
-		print("Type help. Use ArrowUp for history and Tab for command completion.", "muted");
+		print("Try: pwd, ls, cd Downloads, cat Welcome.html, open files", "muted");
 		cmd.focus();
 	</script>
 </body>
