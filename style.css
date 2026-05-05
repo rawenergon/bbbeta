@@ -1648,12 +1648,30 @@ nav [navobj] {
 		linear-gradient(180deg, color-mix(in srgb, var(--colors-accent) 13%, transparent), color-mix(in srgb, var(--col-bg1) 86%, transparent)),
 		color-mix(in srgb, var(--col-bg1) 78%, transparent);
 	border: 1px solid color-mix(in srgb, var(--colors-accent) 30%, var(--col-bg3));
-	border-radius: 10px;
+	border-radius: 14px;
 	color: var(--col-txt1);
 	overflow: hidden;
 	box-shadow: 0 22px 70px #00000070, inset 0 1px 0 #ffffff18;
 	backdrop-filter: blur(24px) saturate(150%);
 	-webkit-backdrop-filter: blur(24px) saturate(150%);
+	transform-origin: bottom right;
+	animation: panelRise .22s cubic-bezier(.2, .8, .2, 1);
+}
+
+#notificationPanel::backdrop {
+	background: transparent;
+}
+
+@keyframes panelRise {
+	from {
+		opacity: 0;
+		transform: translateY(14px) scale(.97);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
 }
 
 .notification-panel-shell {
@@ -1722,6 +1740,15 @@ nav [navobj] {
 	gap: 6px;
 	cursor: pointer;
 	font: inherit;
+	transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.notification-panel-status button:hover,
+#notificationPanel .desktop-widget-actions button:hover,
+.notification-panel-header button:hover {
+	background: color-mix(in srgb, var(--colors-accent) 16%, var(--col-bg2));
+	border-color: color-mix(in srgb, var(--colors-accent) 30%, transparent);
+	transform: translateY(-1px);
 }
 
 .notification-panel-status button {
@@ -1766,6 +1793,25 @@ nav [navobj] {
 	text-align: left;
 	align-items: flex-start;
 	width: 100%;
+	border-radius: 9px;
+	background:
+		linear-gradient(135deg, color-mix(in srgb, var(--col-txt1) 8%, transparent), color-mix(in srgb, var(--colors-accent) 8%, transparent));
+	border: 1px solid color-mix(in srgb, var(--col-txt1) 9%, transparent);
+	padding: 10px;
+	box-shadow: inset 0 1px 0 #ffffff10;
+	animation: notificationItemIn .18s ease-out;
+}
+
+@keyframes notificationItemIn {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .notification-empty {
@@ -2094,33 +2140,39 @@ input#novamenusearchinp {
 }
 
 #notification {
-	position: absolute;
+	position: fixed;
 	right: 12px;
 	width: min(330px, calc(100vw - 24px));
 	background:
 		linear-gradient(180deg, color-mix(in srgb, var(--colors-accent) 12%, transparent), color-mix(in srgb, var(--col-bg1) 86%, transparent)),
 		color-mix(in srgb, var(--col-bg1) 82%, transparent);
-	border-radius: 10px;
+	border-radius: 14px;
 	padding: 12px;
 	bottom: 64px;
 	box-shadow: 0 18px 55px rgb(0 0 0 / 62%), inset 0 1px 0 #ffffff17;
 	display: none;
-	animation: notifpull var(----time1);
+	animation: notifpull .24s cubic-bezier(.2, .8, .2, 1);
 	cursor: pointer;
 	border: 1px solid color-mix(in srgb, var(--colors-accent) 28%, var(--col-bg3));
 	backdrop-filter: blur(20px) saturate(145%);
 	-webkit-backdrop-filter: blur(20px) saturate(145%);
+	transition: opacity .18s ease, transform .18s ease, border-color .18s ease;
+}
+
+#notification:hover {
+	transform: translateY(-2px);
+	border-color: color-mix(in srgb, var(--colors-accent) 45%, var(--col-bg3));
 }
 
 @keyframes notifpull {
 	from {
 		opacity: 0;
-		transform: translateY(25px);
+		transform: translateY(18px) scale(.98);
 	}
 
 	to {
 		opacity: 1;
-		transform: translateY(0);
+		transform: translateY(0) scale(1);
 	}
 }
 

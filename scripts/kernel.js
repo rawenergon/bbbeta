@@ -86,6 +86,14 @@ async function openfile(x, stufftodo) {
 
             if (appIdToOpen) {
                 openlaunchprotocol(appIdToOpen, unid);
+            } else if ([".txt", ".json"].includes(fileExtension.toLowerCase())) {
+                const textApp = await getFileByPath("Apps/Text.app");
+                if (textApp?.id) openlaunchprotocol(textApp.id, unid);
+                else say("Text app is not installed yet.", "failed");
+            } else if (fileExtension.toLowerCase() === ".pdf") {
+                const pdfApp = await getFileByPath("Apps/Pdfreader.app") || await getFileByPath("Apps/PDF Reader.app");
+                if (pdfApp?.id) openlaunchprotocol(pdfApp.id, unid);
+                else say("PDF Reader is not installed yet.", "failed");
             } else {
                 say(`No apps installed can read this file. <br><a type="btn" onclick="useHandler('content_store', {'opener':'search', 'data':'${mm.type}'});">Search for handlers <span ic class="material-symbols-rounded">
 								arrow_forward

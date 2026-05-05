@@ -5,7 +5,8 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta name="nova-include" content="nova.css material-symbols-rounded">
-	<meta name="permissions" content="unsandboxed">
+	<meta name="capabilities" content=".pdf,pdf_reader">
+	<meta name="permissions" content="unsandboxed, fileGet, olp">
 	<meta name="nova-aspectratio" content="10/7">
 	<meta name="nova-icon" content="<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' rx='12' fill='#dc2626'/><path d='M15 9h14l6 6v24H15z' fill='#fff'/><path d='M29 9v7h6' fill='#fecaca'/><text x='18' y='31' font-size='9' font-family='Arial' font-weight='700' fill='#dc2626'>PDF</text></svg>">
 	<title>PDF Reader</title>
@@ -25,6 +26,7 @@
 		input { display: none; }
 		main { min-height: 0; position: relative; background: color-mix(in srgb, var(--col-bg1) 78%, #111); }
 		iframe { width: 100%; height: 100%; border: 0; background: #2b2b2b; }
+		[hidden] { display: none !important; }
 		.empty { position: absolute; inset: 14px; border: 1px dashed color-mix(in srgb, var(--col-txt1) 20%, transparent); border-radius: 12px; display: grid; place-items: center; text-align: center; color: color-mix(in srgb, var(--col-txt1) 72%, transparent); padding: 28px; background: color-mix(in srgb, var(--col-bg2) 35%, transparent); }
 		.empty.dragover { border-color: var(--colors-accent); background: color-mix(in srgb, var(--colors-accent) 13%, var(--col-bg2)); }
 		.empty .material-symbols-rounded { font-size: 48px; color: var(--colors-accent); }
@@ -42,8 +44,8 @@
 		<div class="title">
 			<span class="material-symbols-rounded">picture_as_pdf</span>
 			<div class="title-text">
-				<span id="filename">PDF Reader</span>
-				<small id="filemeta">Open or drop a PDF file</small>
+				<span id="filename">No PDF open</span>
+				<small id="filemeta">Choose or drop a file</small>
 			</div>
 		</div>
 		<div class="toolbar">
@@ -73,6 +75,7 @@
 	<script>
 		let currentUrl = "";
 		let currentFileName = "";
+		let ntxSession;
 		const viewer = document.getElementById("viewer");
 		const empty = document.getElementById("empty");
 		const filename = document.getElementById("filename");
@@ -96,12 +99,19 @@
 			return currentUrl ? `${currentUrl}#toolbar=1&navpanes=1&zoom=${encodeURIComponent(zoom.value)}` : "";
 		}
 
+		async function dataUriToFile(fileData) {
+			if (!fileData?.content) throw new Error("PDF file has no content");
+			const response = await fetch(fileData.content);
+			const blob = await response.blob();
+			return new File([blob], fileData.fileName || "document.pdf", { type: blob.type || "application/pdf" });
+		}
+
 		function setLoaded(file) {
 			if (currentUrl) URL.revokeObjectURL(currentUrl);
 			currentUrl = URL.createObjectURL(file);
 			currentFileName = file.name;
 			filename.textContent = file.name;
-			filemeta.textContent = `${formatBytes(file.size)} - ${file.type || "application/pdf"}`;
+			filemeta.textContent = `${formatBytes(file.size)} - ${file.type || "application/pdf"} - ${zoom.options[zoom.selectedIndex].text}`;
 			viewer.src = viewerUrl();
 			viewer.hidden = false;
 			empty.hidden = true;
@@ -117,8 +127,24 @@
 			setLoaded(file);
 		}
 
+		async function openFileId(fileId) {
+			try {
+				filemeta.textContent = "Loading PDF...";
+				if (!ntxSession) ntxSession = new NTXSession();
+				const fileData = await ntxSession.send("fileGet.byId", fileId);
+				openFile(await dataUriToFile(fileData));
+			} catch (error) {
+				filemeta.textContent = "Could not open this PDF.";
+			}
+		}
+
 		document.getElementById("file").addEventListener("change", event => openFile(event.target.files[0]));
-		zoom.addEventListener("change", () => { if (currentUrl) viewer.src = viewerUrl(); });
+		zoom.addEventListener("change", () => {
+			if (currentUrl) {
+				viewer.src = viewerUrl();
+				filemeta.textContent = `${currentFileName} - ${zoom.options[zoom.selectedIndex].text}`;
+			}
+		});
 		document.getElementById("newtab").onclick = () => { if (currentUrl) window.open(viewerUrl(), "_blank"); };
 		document.getElementById("download").onclick = () => {
 			if (!currentUrl) return;
@@ -134,8 +160,8 @@
 			viewer.src = "";
 			viewer.hidden = true;
 			empty.hidden = false;
-			filename.textContent = "PDF Reader";
-			filemeta.textContent = "Open or drop a PDF file";
+			filename.textContent = "No PDF open";
+			filemeta.textContent = "Choose or drop a file";
 			buttons.forEach(button => button.disabled = true);
 		};
 
@@ -149,6 +175,10 @@
 			empty.classList.remove("dragover");
 			openFile(event.dataTransfer.files[0]);
 		});
+		async function greenflag() {
+			ntxSession = new NTXSession();
+			if (myWindow?.params?.data) await openFileId(myWindow.params.data);
+		}
 		window.addEventListener("beforeunload", () => { if (currentUrl) URL.revokeObjectURL(currentUrl); });
 	</script>
 </body>
