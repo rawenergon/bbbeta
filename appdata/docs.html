@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="nova-icon" content="<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' rx='12' fill='#2f6df6'/><path d='M15 10h13l7 7v21H15z' fill='#fff'/><path d='M28 10v8h7' fill='#d8e4ff'/><path d='M19 24h12M19 29h12M19 34h8' stroke='#2f6df6' stroke-width='2' stroke-linecap='round'/></svg>">
+	<meta name="nova-aspectratio" content="9/6">
+	<title>Docs</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { margin: 0; height: 100vh; background: var(--col-bg1); color: var(--col-txt1); font-family: inherit; }
+		main { height: 100%; display: grid; grid-template-columns: 220px 1fr; }
+		nav { background: var(--col-bg2); border-right: 1px solid var(--col-bg3); padding: 14px; overflow: auto; }
+		button { width: 100%; border: 0; border-radius: 8px; padding: 10px; margin-bottom: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+		button.active, button:hover { background: var(--col-bg3); }
+		article { padding: 24px; overflow: auto; line-height: 1.55; }
+		h1 { margin-top: 0; }
+		.card { border: 1px solid var(--col-bg3); border-radius: 8px; padding: 14px; margin: 12px 0; background: color-mix(in srgb, var(--col-bg2) 75%, transparent); }
+		code { background: var(--col-bg3); padding: 2px 5px; border-radius: 4px; }
+		@media (max-width: 650px) { main { grid-template-columns: 1fr; } nav { display: flex; gap: 8px; border-right: 0; border-bottom: 1px solid var(--col-bg3); } button { min-width: 150px; } }
+	</style>
+</head>
+<body>
+	<main>
+		<nav id="docnav"></nav>
+		<article id="docbody"></article>
+	</main>
+	<script>
+		const docs = {
+			"Welcome": `<h1>BB OS Docs</h1><p>BB OS is a lightweight web desktop. Apps open in movable windows, files live in browser storage, and the taskbar keeps the launcher, search, running apps, and system tray close by.</p><div class="card"><b>Default sign in</b><p>Fresh local installs use username <code>Admin</code> and password <code>nova</code>. Password data is kept locally by the browser.</p></div>`,
+			"Launcher": `<h1>Launcher</h1><p>Use the BB OS button on the taskbar to open apps. The dock shows pinned default apps, while running apps appear beside it.</p><p>Right click apps or desktop items for actions.</p>`,
+			"Search": `<h1>Search</h1><p>Open search from the taskbar. Type an app, file, or folder name. Press Enter to open the best match.</p><p>Recently opened apps appear on the right side for quick access.</p>`,
+			"Files": `<h1>Home Screen Files</h1><p>Use the desktop widget or right click the home screen and choose <b>Add files to homescreen</b>. Selected files are copied into local browser storage and shown as desktop icons.</p>`,
+			"Windows": `<h1>Windows</h1><p>Drag window title bars to move apps. Use the maximize button to fill the workspace above the taskbar. Drag to screen edges to snap.</p>`
+		};
+		const nav = document.getElementById("docnav");
+		const body = document.getElementById("docbody");
+		function openDoc(name) {
+			body.innerHTML = docs[name];
+			[...nav.children].forEach(btn => btn.classList.toggle("active", btn.textContent === name));
+		}
+		Object.keys(docs).forEach((name, index) => {
+			const button = document.createElement("button");
+			button.textContent = name;
+			button.onclick = () => openDoc(name);
+			nav.appendChild(button);
+			if (index === 0) openDoc(name);
+		});
+	</script>
+</body>
+</html>

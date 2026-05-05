@@ -318,6 +318,79 @@
 			padding-bottom: 5px;
 		}
 
+		.store-hero {
+			display: flex;
+			justify-content: space-between;
+			gap: 1rem;
+			align-items: center;
+			padding: 0.8rem;
+			margin: 0.5rem 0 1rem;
+			border-radius: var(--siz-radius1);
+			background: color-mix(in srgb, var(--col-bg2) 75%, transparent);
+			border: 1px solid #ffffff0c;
+		}
+
+		.store-hero p {
+			opacity: .68;
+			margin-top: .25rem;
+			font-size: var(--font-size-small);
+		}
+
+		.store-app-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+			gap: .8rem;
+		}
+
+		.store-app-card {
+			display: flex;
+			flex-direction: column;
+			gap: .7rem;
+			padding: .8rem;
+			border-radius: var(--siz-radius1);
+			background: var(--col-bg2);
+			border: 1px solid #ffffff0c;
+		}
+
+		.store-app-top {
+			display: flex;
+			align-items: center;
+			gap: .7rem;
+		}
+
+		.store-app-icon {
+			width: 46px;
+			height: 46px;
+			display: grid;
+			place-items: center;
+			border-radius: .75rem;
+			background: color-mix(in srgb, var(--colors-accent) 20%, var(--col-bg3));
+		}
+
+		.store-app-icon .material-symbols-rounded {
+			font-size: 27px;
+		}
+
+		.store-app-title {
+			font-weight: 650;
+		}
+
+		.store-app-meta,
+		.store-app-desc {
+			opacity: .68;
+			font-size: var(--font-size-small);
+		}
+
+		.store-app-card button {
+			border: 0;
+			border-radius: .55rem;
+			padding: .5rem .7rem;
+			background: var(--colors-accent);
+			color: white;
+			cursor: pointer;
+			width: fit-content;
+		}
+
 
 		@keyframes pop {
 			0% {
@@ -371,6 +444,7 @@
 		<div class="tab">
 			<button class="tablinks btnlike" onclick="openCity(event, 'themes'); 
 						loadThemes();" id="defaultOpen"><i class="material-symbols-rounded">brush</i> Themes</button>
+			<button class="tablinks btnlike" onclick="openCity(event, 'apps'); loadStoreApps();"><i class="material-symbols-rounded">apps</i> Apps</button>
 		</div>
 
 		<div id="themes" class="tabcontent">
@@ -383,6 +457,15 @@
 				<button data-filter="Accelerator">Accelerator</button>
 			</div>
 			<div id="themeslist" class="applist"></div>
+		</div>
+		<div id="apps" class="tabcontent">
+			<div class="store-hero">
+				<div>
+					<h1><span class="material-symbols-rounded">apps</span> Apps</h1>
+					<p>Small local apps for BB OS. Installed apps appear in the launcher.</p>
+				</div>
+			</div>
+			<div id="storeappslist" class="store-app-grid"></div>
 		</div>
 	</container>
 
@@ -411,6 +494,105 @@
 		}
 
 		document.getElementById("defaultOpen").click();
+
+		const localStoreApps = [
+			{
+				id: "pdfreader",
+				name: "PDF Reader",
+				file: "pdfreader",
+				icon: "picture_as_pdf",
+				meta: "Reader - Local files",
+				desc: "Open PDF files from your device and read them inside BB OS."
+			},
+			{
+				id: "musicplayer",
+				name: "Music Player",
+				file: "musicplayer",
+				icon: "library_music",
+				meta: "Audio - Local playlists",
+				desc: "Play local audio files with a clean mini player and queue."
+			},
+			{
+				id: "paint",
+				name: "Paint",
+				file: "paint",
+				icon: "brush",
+				meta: "Drawing - Offline canvas",
+				desc: "Sketch quick ideas, annotate screenshots, and save your canvas as an image."
+			},
+			{
+				id: "markdown",
+				name: "Markdown",
+				file: "markdown",
+				icon: "article",
+				meta: "Writing - Local notes",
+				desc: "Write Markdown and preview clean docs without needing any online service."
+			},
+			{
+				id: "calendar",
+				name: "Calendar",
+				file: "calendar",
+				icon: "calendar_month",
+				meta: "Planner - Offline",
+				desc: "View the month and keep simple daily notes locally."
+			},
+			{
+				id: "taskboard",
+				name: "Task Board",
+				file: "taskboard",
+				icon: "view_kanban",
+				meta: "Productivity - Offline",
+				desc: "Organize project work in todo, doing, and done columns."
+			},
+			{
+				id: "terminal",
+				name: "Terminal",
+				file: "terminal",
+				icon: "terminal",
+				meta: "Tools - Local helper",
+				desc: "Run BB OS helper commands like help, apps, date, and clear."
+			}
+		];
+
+		function loadStoreApps() {
+			const list = document.getElementById("storeappslist");
+			list.innerHTML = "";
+			localStoreApps.forEach(app => {
+				const card = document.createElement("div");
+				card.className = "store-app-card";
+				card.innerHTML = `
+					<div class="store-app-top">
+						<div class="store-app-icon"><span class="material-symbols-rounded">${app.icon}</span></div>
+						<div>
+							<div class="store-app-title">${app.name}</div>
+							<div class="store-app-meta">${app.meta}</div>
+						</div>
+					</div>
+					<div class="store-app-desc">${app.desc}</div>
+					<button data-install="${app.id}">Install</button>
+				`;
+				card.querySelector("button").onclick = () => installStoreApp(app);
+				list.appendChild(card);
+			});
+		}
+
+		async function installStoreApp(app) {
+			const button = document.querySelector(`[data-install="${app.id}"]`);
+			button.textContent = "Installing...";
+			button.disabled = true;
+			try {
+				const content = await window.parent.fetchData(`appdata/${app.file}.html`);
+				if (!content) throw new Error("App package not found");
+				await window.parent.createFile("Apps/", app.name, "app", content);
+				await window.parent.novarefresh();
+				button.textContent = "Installed";
+				if (window.ntxSession?.send) ntxSession.send("sysUI.toast", `${app.name} installed.`);
+			} catch (error) {
+				button.textContent = "Retry";
+				button.disabled = false;
+				if (window.ntxSession?.send) ntxSession.send("sysUI.toast", `Could not install ${app.name}.`);
+			}
+		}
 
 
 		const activeFilters = new Set();

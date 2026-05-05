@@ -1,151 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="nova-include" content="nova.css material-symbols-rounded">
+  <meta name="permissions" content="unsandboxed">
+  <meta name="nova-icon" content="<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' rx='12' fill='#2563eb'/><circle cx='24' cy='24' r='15' fill='#dbeafe'/><path d='M9 24h30M24 9c5 5 7 10 7 15s-2 10-7 15M24 9c-5 5-7 10-7 15s2 10 7 15' stroke='#2563eb' stroke-width='2' fill='none' stroke-linecap='round'/></svg>">
+  <meta name="nova-aspectratio" content="12/7">
   <title>Browser</title>
-
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       height: 100vh;
-      font-family: Arial, sans-serif;
-      background: #f4f6fb;
+      font-family: inherit;
+      background: var(--col-bg1);
+      color: var(--col-txt1);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
-
-    .browser {
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
+    .browser { height: 100%; display: flex; flex-direction: column; min-height: 0; }
     .topbar {
-      background: #ffffff;
-      padding: 10px;
-      display: flex;
+      display: grid;
+      grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
       gap: 8px;
       align-items: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-      z-index: 10;
+      padding: 8px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--col-bg2) 90%, transparent), color-mix(in srgb, var(--col-bg1) 94%, transparent)),
+        var(--col-bg2);
+      border-bottom: 1px solid color-mix(in srgb, var(--col-txt1) 10%, transparent);
     }
-
     button {
-      border: none;
-      background: #eef1f6;
-      padding: 9px 12px;
-      border-radius: 10px;
+      min-width: 34px;
+      height: 34px;
+      border: 1px solid color-mix(in srgb, var(--col-txt1) 9%, transparent);
+      background: color-mix(in srgb, var(--col-txt1) 6%, transparent);
+      color: inherit;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
+      display: inline-grid;
+      place-items: center;
+      font: inherit;
     }
-
-    button:hover {
-      background: #dde3ee;
+    button:hover { background: color-mix(in srgb, var(--col-txt1) 10%, transparent); }
+    button.primary { padding: 0 14px; background: var(--colors-accent); color: white; border-color: transparent; }
+    .material-symbols-rounded { font-size: 20px; }
+    .address {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--colors-accent) 26%, var(--col-bg3));
+      background: color-mix(in srgb, var(--col-bg1) 86%, transparent);
+      box-shadow: inset 0 1px 0 #ffffff10;
     }
-
+    .address span { opacity: .65; }
     input {
-      flex: 1;
-      border: 1px solid #d7dce5;
-      border-radius: 12px;
+      min-width: 0;
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+    }
+    .hint {
       padding: 10px 14px;
-      font-size: 14px;
-      outline: none;
+      font-size: 12px;
+      color: color-mix(in srgb, var(--col-txt1) 70%, transparent);
+      background: color-mix(in srgb, var(--col-bg2) 70%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--col-txt1) 8%, transparent);
     }
-
-    input:focus {
-      border-color: #6b8cff;
-    }
-
     iframe {
       flex: 1;
       width: 100%;
-      border: none;
+      min-height: 0;
+      border: 0;
       background: white;
+    }
+    @media (max-width: 620px) {
+      .topbar { grid-template-columns: auto auto auto auto; }
+      .address { grid-column: 1 / -1; grid-row: 2; }
+      button.primary { grid-column: 4; grid-row: 2; justify-self: end; }
     }
   </style>
 </head>
-
 <body>
   <div class="browser">
     <div class="topbar">
-      <button onclick="goBack()">←</button>
-      <button onclick="goForward()">→</button>
-      <button onclick="reloadPage()">⟳</button>
-      <button onclick="goHome()">⌂</button>
-
-      <input 
-        id="urlInput" 
-        type="text" 
-        placeholder="Search or enter website"
-        onkeydown="handleEnter(event)"
-      />
-
-      <button onclick="searchWeb()">Go</button>
+      <button title="Back" onclick="goBack()"><span class="material-symbols-rounded">arrow_back</span></button>
+      <button title="Forward" onclick="goForward()"><span class="material-symbols-rounded">arrow_forward</span></button>
+      <button title="Reload" onclick="reloadPage()"><span class="material-symbols-rounded">refresh</span></button>
+      <button title="Home" onclick="goHome()"><span class="material-symbols-rounded">home</span></button>
+      <div class="address">
+        <span class="material-symbols-rounded">travel_explore</span>
+        <input id="urlInput" type="text" placeholder="Search or enter website" onkeydown="handleEnter(event)">
+      </div>
+      <button class="primary" onclick="searchWeb()">Go</button>
     </div>
-
-    <iframe id="webFrame" src="https://example.com"></iframe>
+    <div class="hint" id="hint">Some websites block embedded browsers. Search pages and lightweight sites work best.</div>
+    <iframe id="webFrame" title="Browser page" srcdoc="<style>body{font-family:system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#f6f7fb;color:#1f2937}.card{max-width:520px;padding:28px;text-align:center}.icon{font-size:54px}h1{margin:8px 0}</style><div class='card'><div class='icon'>BB</div><h1>BB Browser</h1><p>Type a website or search term above.</p></div>"></iframe>
   </div>
-
   <script>
     const iframe = document.getElementById("webFrame");
     const input = document.getElementById("urlInput");
+    const hint = document.getElementById("hint");
+    let currentUrl = "";
 
     function formatUrl(value) {
       value = value.trim();
-
-      if (!value) return "https://example.com";
-
+      if (!value) return "";
       const looksLikeUrl = value.includes(".") && !value.includes(" ");
-
-      if (looksLikeUrl) {
-        if (!value.startsWith("http://") && !value.startsWith("https://")) {
-          return "https://" + value;
-        }
-        return value;
-      }
-
-      return "https://www.bing.com/search?q=" + encodeURIComponent(value);
+      if (looksLikeUrl) return value.startsWith("http://") || value.startsWith("https://") ? value : "https://" + value;
+      return "https://duckduckgo.com/html/?q=" + encodeURIComponent(value);
     }
 
-    function searchWeb() {
-      iframe.src = formatUrl(input.value);
+    function navigateTo(url) {
+      if (!url) return;
+      currentUrl = url;
+      iframe.removeAttribute("srcdoc");
+      iframe.src = url;
+      input.value = url;
+      hint.textContent = "Loading " + url;
     }
 
-    function handleEnter(event) {
-      if (event.key === "Enter") {
-        searchWeb();
-      }
-    }
-
-    function reloadPage() {
-      iframe.src = iframe.src;
-    }
-
+    function searchWeb() { navigateTo(formatUrl(input.value)); }
+    function handleEnter(event) { if (event.key === "Enter") searchWeb(); }
+    function reloadPage() { if (currentUrl) navigateTo(currentUrl); }
     function goHome() {
-      iframe.src = "https://example.com";
+      currentUrl = "";
       input.value = "";
+      iframe.removeAttribute("src");
+      iframe.srcdoc = "<style>body{font-family:system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#f6f7fb;color:#1f2937}.card{max-width:520px;padding:28px;text-align:center}.icon{font-size:54px}h1{margin:8px 0}</style><div class='card'><div class='icon'>BB</div><h1>BB Browser</h1><p>Type a website or search term above.</p></div>";
+      hint.textContent = "Some websites block embedded browsers. Search pages and lightweight sites work best.";
     }
-
-    function goBack() {
-      try {
-        iframe.contentWindow.history.back();
-      } catch {
-        alert("Back is blocked for this page.");
-      }
-    }
-
-    function goForward() {
-      try {
-        iframe.contentWindow.history.forward();
-      } catch {
-        alert("Forward is blocked for this page.");
-      }
-    }
+    function goBack() { try { iframe.contentWindow.history.back(); } catch { hint.textContent = "Back is blocked for this page."; } }
+    function goForward() { try { iframe.contentWindow.history.forward(); } catch { hint.textContent = "Forward is blocked for this page."; } }
+    iframe.addEventListener("load", () => { if (currentUrl) hint.textContent = "Loaded " + currentUrl; });
   </script>
 </body>
 </html>

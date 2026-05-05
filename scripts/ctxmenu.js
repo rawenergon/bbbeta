@@ -100,6 +100,7 @@ async function getMenuItems(target) {
 	
 	if (target.id === 'desktop') {
 		return [
+			{ icon: 'upload_file', label: 'Add files to homescreen', action: () => triggerDesktopFilePicker() },
 			{ icon: 'refresh', label: 'Refresh homescreen', action: () => novarefresh() },
 			{ icon: 'Power', label: 'BB setup', action: () => launchbios() },
 		];

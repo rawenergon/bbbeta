@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Paint</title>
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="nova-icon" content="<svg width='232' height='232' viewBox='0 0 232 232' fill='none' xmlns='http://www.w3.org/2000/svg'><rect width='232' height='232' rx='50' fill='#1D5D72'/><path d='M64 154c17-34 35-58 71-86 13-10 30 7 20 20-28 36-52 54-86 71-5 3-9 0-5-5Z' fill='#DDF7EE'/><path d='M55 168c16 6 34 4 48-8-9 19-27 29-48 24-9-2-9-19 0-16Z' fill='#69D2C0'/></svg>">
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			overflow: hidden;
+			background: var(--col-bg1);
+			color: var(--col-txt1);
+			font-family: var(--font);
+		}
+
+		.paint-shell {
+			height: 100%;
+			display: grid;
+			grid-template-rows: auto 1fr;
+			background: var(--col-bg1);
+		}
+
+		.toolbar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px;
+			background: var(--col-bg2);
+			border-bottom: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+			overflow-x: auto;
+		}
+
+		button,
+		label {
+			height: 34px;
+			border: 1px solid color-mix(in srgb, var(--col-txt1) 13%, transparent);
+			background: color-mix(in srgb, var(--col-txt1) 7%, transparent);
+			color: var(--col-txt1);
+			border-radius: 8px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			padding: 0 10px;
+			cursor: pointer;
+			font: inherit;
+			white-space: nowrap;
+		}
+
+		input[type="color"] {
+			width: 34px;
+			height: 34px;
+			border: 0;
+			background: transparent;
+			padding: 0;
+		}
+
+		input[type="range"] {
+			width: 110px;
+		}
+
+		canvas {
+			width: 100%;
+			height: 100%;
+			display: block;
+			background: #fff;
+			touch-action: none;
+			cursor: crosshair;
+		}
+
+		.material-symbols-rounded {
+			font-size: 19px;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="paint-shell">
+		<div class="toolbar">
+			<input id="color" type="color" value="#145cff" aria-label="Brush color">
+			<label>
+				<span class="material-symbols-rounded">line_weight</span>
+				<input id="size" type="range" min="2" max="40" value="8">
+			</label>
+			<button id="eraser"><span class="material-symbols-rounded">ink_eraser</span>Eraser</button>
+			<button id="clear"><span class="material-symbols-rounded">delete</span>Clear</button>
+			<button id="save"><span class="material-symbols-rounded">download</span>PNG</button>
+		</div>
+		<canvas id="canvas"></canvas>
+	</div>
+	<script>
+		const canvas = document.getElementById("canvas");
+		const ctx = canvas.getContext("2d");
+		const color = document.getElementById("color");
+		const size = document.getElementById("size");
+		let drawing = false;
+		let erasing = false;
+		let last = null;
+
+		function resizeCanvas() {
+			const image = canvas.toDataURL();
+			canvas.width = canvas.clientWidth * devicePixelRatio;
+			canvas.height = canvas.clientHeight * devicePixelRatio;
+			ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+			ctx.fillStyle = "#ffffff";
+			ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+			if (image.length > 200) {
+				const img = new Image();
+				img.onload = () => ctx.drawImage(img, 0, 0, canvas.clientWidth, canvas.clientHeight);
+				img.src = image;
+			}
+		}
+
+		function point(event) {
+			const rect = canvas.getBoundingClientRect();
+			return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+		}
+
+		function draw(event) {
+			if (!drawing) return;
+			const next = point(event);
+			ctx.lineCap = "round";
+			ctx.lineJoin = "round";
+			ctx.lineWidth = Number(size.value);
+			ctx.strokeStyle = erasing ? "#ffffff" : color.value;
+			ctx.beginPath();
+			ctx.moveTo(last.x, last.y);
+			ctx.lineTo(next.x, next.y);
+			ctx.stroke();
+			last = next;
+		}
+
+		canvas.addEventListener("pointerdown", (event) => {
+			drawing = true;
+			last = point(event);
+			canvas.setPointerCapture(event.pointerId);
+		});
+		canvas.addEventListener("pointermove", draw);
+		canvas.addEventListener("pointerup", () => drawing = false);
+		canvas.addEventListener("pointercancel", () => drawing = false);
+		document.getElementById("eraser").onclick = () => {
+			erasing = !erasing;
+			document.getElementById("eraser").style.background = erasing ? "var(--colors-accent)" : "";
+		};
+		document.getElementById("clear").onclick = () => {
+			ctx.fillStyle = "#ffffff";
+			ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+		};
+		document.getElementById("save").onclick = () => {
+			const link = document.createElement("a");
+			link.download = "bbos-paint.png";
+			link.href = canvas.toDataURL("image/png");
+			link.click();
+		};
+		addEventListener("resize", resizeCanvas);
+		resizeCanvas();
+	</script>
+</body>
+
+</html>

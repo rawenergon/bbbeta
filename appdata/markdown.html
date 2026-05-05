@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Markdown</title>
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="nova-icon" content="<svg width='232' height='232' viewBox='0 0 232 232' fill='none' xmlns='http://www.w3.org/2000/svg'><rect width='232' height='232' rx='48' fill='#27324A'/><path d='M56 62h120c11 0 20 9 20 20v68c0 11-9 20-20 20H56c-11 0-20-9-20-20V82c0-11 9-20 20-20Z' fill='#EFF6FF'/><path d='M66 139V94h15l16 21 16-21h15v45h-16v-22l-15 19-15-19v22H66Zm84 0 22-23h-14V94h-16v22h-14l22 23Z' fill='#27324A'/></svg>">
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			background: var(--col-bg1);
+			color: var(--col-txt1);
+			font-family: var(--font);
+			overflow: hidden;
+		}
+
+		.shell {
+			height: 100%;
+			display: grid;
+			grid-template-rows: auto 1fr;
+		}
+
+		.toolbar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px;
+			background: var(--col-bg2);
+			border-bottom: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+		}
+
+		button {
+			height: 34px;
+			border: 1px solid color-mix(in srgb, var(--col-txt1) 13%, transparent);
+			background: color-mix(in srgb, var(--col-txt1) 7%, transparent);
+			color: var(--col-txt1);
+			border-radius: 8px;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 0 10px;
+			cursor: pointer;
+			font: inherit;
+		}
+
+		.editor {
+			min-height: 0;
+			display: grid;
+			grid-template-columns: minmax(230px, 1fr) minmax(230px, 1fr);
+		}
+
+		textarea,
+		.preview {
+			width: 100%;
+			height: 100%;
+			border: 0;
+			outline: 0;
+			padding: 18px;
+			background: var(--col-bg1);
+			color: var(--col-txt1);
+			font: 15px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+			resize: none;
+			overflow: auto;
+		}
+
+		.preview {
+			background: color-mix(in srgb, var(--col-bg2) 72%, var(--col-bg1));
+			border-left: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+			font-family: var(--font);
+		}
+
+		.preview h1,
+		.preview h2,
+		.preview h3 {
+			margin: 0 0 10px;
+		}
+
+		.preview code {
+			background: color-mix(in srgb, var(--col-txt1) 9%, transparent);
+			border-radius: 5px;
+			padding: 2px 5px;
+		}
+
+		.preview pre {
+			background: color-mix(in srgb, var(--col-txt1) 8%, transparent);
+			border-radius: 8px;
+			padding: 12px;
+			overflow: auto;
+		}
+
+		@media (max-width: 760px) {
+			.editor {
+				grid-template-columns: 1fr;
+				grid-template-rows: 1fr 1fr;
+			}
+
+			.preview {
+				border-left: 0;
+				border-top: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent);
+			}
+		}
+	</style>
+</head>
+
+<body>
+	<div class="shell">
+		<div class="toolbar">
+			<button id="sample"><span class="material-symbols-rounded">auto_awesome</span>Sample</button>
+			<button id="download"><span class="material-symbols-rounded">download</span>Save .md</button>
+		</div>
+		<div class="editor">
+			<textarea id="source" spellcheck="false"># BB OS Notes
+
+Write your project notes here.
+
+- Use **bold** for important ideas.
+- Use `code` for commands or file names.
+- Keep features simple and useful.</textarea>
+			<div id="preview" class="preview"></div>
+		</div>
+	</div>
+	<script>
+		const source = document.getElementById("source");
+		const preview = document.getElementById("preview");
+
+		function escapeHTML(text) {
+			return text.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+		}
+
+		function renderMarkdown(text) {
+			let html = escapeHTML(text);
+			html = html.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
+			html = html.replace(/^### (.*)$/gm, "<h3>$1</h3>");
+			html = html.replace(/^## (.*)$/gm, "<h2>$1</h2>");
+			html = html.replace(/^# (.*)$/gm, "<h1>$1</h1>");
+			html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+			html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+			html = html.replace(/^- (.*)$/gm, "<li>$1</li>");
+			html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+			html = html.split(/\n{2,}/).map(block => {
+				if (/^\s*<(h\d|ul|pre)/.test(block)) return block;
+				return `<p>${block.replace(/\n/g, "<br>")}</p>`;
+			}).join("");
+			preview.innerHTML = html;
+		}
+
+		source.addEventListener("input", () => renderMarkdown(source.value));
+		document.getElementById("sample").onclick = () => {
+			source.value = "# Project Checklist\n\n## BB OS\n\n- First launch opens apps\n- Widgets move on desktop\n- Music, Paint, PDF, Markdown apps work\n\n`Keep it lightweight.`";
+			renderMarkdown(source.value);
+		};
+		document.getElementById("download").onclick = () => {
+			const blob = new Blob([source.value], { type: "text/markdown" });
+			const link = document.createElement("a");
+			link.download = "bbos-notes.md";
+			link.href = URL.createObjectURL(blob);
+			link.click();
+			URL.revokeObjectURL(link.href);
+		};
+		renderMarkdown(source.value);
+	</script>
+</body>
+
+</html>

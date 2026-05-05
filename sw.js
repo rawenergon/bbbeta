@@ -1,13 +1,15 @@
-const CACHE_NAME = 'app-cache-v1';
+const CACHE_NAME = 'app-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
-  'https://cdn.jsdelivr.net/npm/mime-db@1.52.0/db.json',
-  'https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap',
+  '/webmanifest.json',
+  '/versions.json',
   '/system32.js',
   '/style.css',
   '/n.png',
+  '/Dev.png',
   '/nova.css',
+  '/libs/MaterialSymbolsRounded.woff2',
   '/scripts/edgecases.js',
   '/scripts/scripties.js',
   '/script.js',
@@ -16,6 +18,16 @@ const urlsToCache = [
   '/scripts/readwrite.js',
   '/scripts/utility.js',
   '/scripts/ctxmenu.js',
+  '/appdata/docs.html',
+  '/appdata/maps.html',
+  '/appdata/notes.html',
+  '/appdata/pdfreader.html',
+  '/appdata/musicplayer.html',
+  '/appdata/paint.html',
+  '/appdata/markdown.html',
+  '/appdata/calendar.html',
+  '/appdata/taskboard.html',
+  '/appdata/terminal.html',
 ];
 
 self.addEventListener('install', (event) => {
@@ -50,32 +62,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request)
-      .then((cachedResponse) => {
-        // If there is a cached response, return it.
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+    fetch(event.request)
+      .then((response) => {
+        if (!response || response.status !== 200) return response;
 
-        // Otherwise, fetch from the network.
-        return fetch(event.request)
-          .then((response) => {
-            // Check if we got a valid response.
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME)
+          .then((cache) => cache.put(event.request, responseToCache))
+          .catch(() => { });
 
-            // Clone the response to ensure it's usable multiple times.
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          });
+        return response;
       })
+      .catch(() => caches.match(event.request))
   );
 });

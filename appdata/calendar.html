@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Calendar</title>
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="nova-icon" content="<svg width='232' height='232' viewBox='0 0 232 232' fill='none' xmlns='http://www.w3.org/2000/svg'><rect width='232' height='232' rx='48' fill='#1E4D6B'/><rect x='45' y='58' width='142' height='126' rx='18' fill='#F5FAFF'/><rect x='45' y='58' width='142' height='34' rx='18' fill='#58A9D6'/><path d='M79 44v28M153 44v28' stroke='#F5FAFF' stroke-width='14' stroke-linecap='round'/><circle cx='83' cy='119' r='10' fill='#1E4D6B'/><circle cx='116' cy='119' r='10' fill='#1E4D6B'/><circle cx='149' cy='119' r='10' fill='#1E4D6B'/><circle cx='83' cy='153' r='10' fill='#58A9D6'/><circle cx='116' cy='153' r='10' fill='#1E4D6B'/></svg>">
+	<style>
+		* { box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; margin: 0; background: var(--col-bg1); color: var(--col-txt1); font-family: var(--font); overflow: hidden; }
+		.shell { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+		header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; background: var(--col-bg2); border-bottom: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent); }
+		button { border: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent); background: color-mix(in srgb, var(--col-txt1) 7%, transparent); color: inherit; border-radius: 8px; min-height: 34px; padding: 0 10px; cursor: pointer; font: inherit; }
+		.month { font-weight: 700; }
+		.grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(48px, 1fr); gap: 1px; padding: 10px; min-height: 0; }
+		.day, .name { background: color-mix(in srgb, var(--col-bg2) 70%, transparent); border: 1px solid color-mix(in srgb, var(--col-txt1) 8%, transparent); border-radius: 8px; padding: 8px; overflow: hidden; }
+		.name { min-height: auto; font-size: 12px; opacity: .7; display: grid; place-items: center; }
+		.day { cursor: pointer; }
+		.day.today { outline: 2px solid var(--colors-accent); }
+		.day small { display: block; margin-top: 6px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		footer { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px; background: var(--col-bg2); }
+		input { border: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent); border-radius: 8px; background: var(--col-bg1); color: inherit; padding: 0 10px; min-height: 34px; font: inherit; }
+	</style>
+</head>
+
+<body>
+	<div class="shell">
+		<header>
+			<button id="prev"><span class="material-symbols-rounded">chevron_left</span></button>
+			<div id="month" class="month"></div>
+			<button id="next"><span class="material-symbols-rounded">chevron_right</span></button>
+		</header>
+		<div id="grid" class="grid"></div>
+		<footer>
+			<input id="note" placeholder="Select a day and write a note">
+			<button id="save">Save</button>
+		</footer>
+	</div>
+	<script>
+		const grid = document.getElementById("grid");
+		const monthLabel = document.getElementById("month");
+		const note = document.getElementById("note");
+		let view = new Date();
+		let selectedKey = "";
+		const notes = JSON.parse(localStorage.getItem("bbos.calendar.notes") || "{}");
+
+		function key(date) { return date.toISOString().slice(0, 10); }
+		function render() {
+			grid.innerHTML = "";
+			const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+			names.forEach(name => grid.insertAdjacentHTML("beforeend", `<div class="name">${name}</div>`));
+			const year = view.getFullYear();
+			const month = view.getMonth();
+			monthLabel.textContent = view.toLocaleDateString([], { month: "long", year: "numeric" });
+			const first = new Date(year, month, 1).getDay();
+			const days = new Date(year, month + 1, 0).getDate();
+			for (let i = 0; i < first; i++) grid.insertAdjacentHTML("beforeend", "<div></div>");
+			for (let day = 1; day <= days; day++) {
+				const date = new Date(year, month, day);
+				const id = key(date);
+				const cell = document.createElement("div");
+				cell.className = "day" + (id === key(new Date()) ? " today" : "");
+				cell.innerHTML = `<b>${day}</b><small>${notes[id] || ""}</small>`;
+				cell.onclick = () => { selectedKey = id; note.value = notes[id] || ""; };
+				grid.appendChild(cell);
+			}
+		}
+		document.getElementById("prev").onclick = () => { view.setMonth(view.getMonth() - 1); render(); };
+		document.getElementById("next").onclick = () => { view.setMonth(view.getMonth() + 1); render(); };
+		document.getElementById("save").onclick = () => {
+			if (!selectedKey) selectedKey = key(new Date());
+			notes[selectedKey] = note.value.trim();
+			localStorage.setItem("bbos.calendar.notes", JSON.stringify(notes));
+			render();
+		};
+		render();
+	</script>
+</body>
+
+</html>

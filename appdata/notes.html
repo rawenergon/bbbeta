@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="permissions" content="unsandboxed">
+	<meta name="nova-icon" content="<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' rx='12' fill='#f5b942'/><path d='M14 11h20v26H14z' fill='#fff7dc'/><path d='M18 18h12M18 24h12M18 30h8' stroke='#8a5a00' stroke-width='2' stroke-linecap='round'/></svg>">
+	<meta name="nova-aspectratio" content="8/6">
+	<title>Notes</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { margin: 0; height: 100vh; background: var(--col-bg1); color: var(--col-txt1); font-family: inherit; display: flex; flex-direction: column; }
+		header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--col-bg2); border-bottom: 1px solid var(--col-bg3); }
+		button { border: 0; border-radius: 8px; padding: 8px 12px; background: var(--col-bg3); color: inherit; cursor: pointer; }
+		textarea { flex: 1; resize: none; border: 0; padding: 18px; background: transparent; color: inherit; font: inherit; line-height: 1.5; outline: none; }
+		small { opacity: .65; }
+	</style>
+</head>
+<body>
+	<header>
+		<div><b>Quick Notes</b><br><small id="status">Saved locally</small></div>
+		<button onclick="clearNote()">Clear</button>
+	</header>
+	<textarea id="note" placeholder="Write a note..."></textarea>
+	<script>
+		const note = document.getElementById("note");
+		const status = document.getElementById("status");
+		note.value = localStorage.getItem("bbos.quicknote") || "";
+		note.addEventListener("input", () => {
+			localStorage.setItem("bbos.quicknote", note.value);
+			status.textContent = "Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+		});
+		function clearNote() {
+			note.value = "";
+			localStorage.removeItem("bbos.quicknote");
+			status.textContent = "Saved locally";
+		}
+	</script>
+</body>
+</html>

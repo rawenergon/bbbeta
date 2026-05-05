@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="permissions" content="unsandboxed">
+	<meta name="nova-aspectratio" content="8/6">
+	<meta name="nova-icon" content="<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' rx='12' fill='#7c3aed'/><path d='M30 11v19a7 7 0 1 1-4-6.3V15l12-3v7z' fill='#fff'/></svg>">
+	<title>Music Player</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { margin: 0; height: 100vh; background: var(--col-bg1); color: var(--col-txt1); font-family: inherit; display: flex; flex-direction: column; }
+		header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px; background: var(--col-bg2); border-bottom: 1px solid var(--col-bg3); }
+		.title { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+		label { border: 0; border-radius: 8px; padding: 8px 12px; background: var(--colors-accent); color: white; cursor: pointer; }
+		input { display: none; }
+		main { flex: 1; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+		.now { border: 1px solid var(--col-bg3); border-radius: 10px; padding: 16px; background: color-mix(in srgb, var(--col-bg2) 70%, transparent); }
+		.track-title { font-size: 1.2rem; font-weight: 650; margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		audio { width: 100%; }
+		#playlist { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+		.track { border: 1px solid transparent; border-radius: 8px; padding: 10px; background: var(--col-bg2); cursor: pointer; display: flex; gap: 8px; align-items: center; }
+		.track.active { border-color: var(--colors-accent); }
+		.empty { opacity: .7; text-align: center; margin: auto; }
+	</style>
+</head>
+<body>
+	<header>
+		<div class="title"><span class="material-symbols-rounded">library_music</span> Music Player</div>
+		<label>Add music<input id="files" type="file" accept="audio/*" multiple></label>
+	</header>
+	<main>
+		<section class="now">
+			<div id="current" class="track-title">No track selected</div>
+			<audio id="audio" controls></audio>
+		</section>
+		<section id="playlist"><div class="empty">Add audio files to build a local playlist.</div></section>
+	</main>
+	<script>
+		const filesInput = document.getElementById("files");
+		const playlist = document.getElementById("playlist");
+		const audio = document.getElementById("audio");
+		const current = document.getElementById("current");
+		let tracks = [];
+		let activeIndex = -1;
+
+		function render() {
+			playlist.innerHTML = "";
+			if (!tracks.length) {
+				playlist.innerHTML = '<div class="empty">Add audio files to build a local playlist.</div>';
+				return;
+			}
+			tracks.forEach((track, index) => {
+				const row = document.createElement("div");
+				row.className = "track" + (index === activeIndex ? " active" : "");
+				row.innerHTML = `<span class="material-symbols-rounded">music_note</span><span>${track.name}</span>`;
+				row.onclick = () => playTrack(index);
+				playlist.appendChild(row);
+			});
+		}
+
+		function playTrack(index) {
+			activeIndex = index;
+			audio.src = tracks[index].url;
+			current.textContent = tracks[index].name;
+			audio.play().catch(() => {});
+			render();
+		}
+
+		filesInput.addEventListener("change", event => {
+			tracks.forEach(track => URL.revokeObjectURL(track.url));
+			tracks = Array.from(event.target.files || []).map(file => ({ name: file.name, url: URL.createObjectURL(file) }));
+			activeIndex = -1;
+			render();
+			if (tracks[0]) playTrack(0);
+		});
+		audio.addEventListener("ended", () => {
+			if (activeIndex + 1 < tracks.length) playTrack(activeIndex + 1);
+		});
+		window.addEventListener("beforeunload", () => tracks.forEach(track => URL.revokeObjectURL(track.url)));
+	</script>
+</body>
+</html>

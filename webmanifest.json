@@ -1,0 +1,16 @@
+{
+  "name": "BB OS",
+  "short_name": "BB OS",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "icons": [
+    {
+      "src": "n.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

@@ -10,23 +10,13 @@
 	<link rel="stylesheet" href="nova.css">
 	<link rel="stylesheet" href="style.css">
 	<link rel="icon" type="image/webp" href="n.png">
+	<meta name="theme-color" content="#101010">
 	<link rel="canonical" href="https://runnova.github.io/">
 	<!--BB scripts-->
 	<script src="scripts/utility.js"></script>
 	<script src="script.js" defer></script>
 	<!--PWA Manifest-->
 	<link href="webmanifest.json" rel="manifest">
-	<!--Google Icons-->
-	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-	<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-MSQVF245Z2"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-MSQVF245Z2');
-</script>
 
 </head>
 
@@ -151,20 +141,27 @@
 			</div>
 			<nav id="novanav" class="scalableui">
 				<div class="flodiv">
+					<section navobj class="taskbar-zone taskbar-zone-weather" aria-label="Weather">
+						<span class="material-symbols-rounded taskbar-weather-icon">thermometer</span>
+						<div class="taskbar-weather-copy">
+							<b>Hot days ahead</b>
+							<span>26°C</span>
+						</div>
+					</section>
 					<section navobj class="taskbar-zone taskbar-zone-left" aria-label="System controls">
 						<your class="taskbar-control" onclick="openn()">
-							<biv draggable="true" class="app-shortcut tooltip adock sizableuielement" aria-label="BB OS menu">
+							<biv draggable="true" class="app-shortcut adock sizableuielement" aria-label="BB OS menu">
 								<span ic class="material-symbols-rounded" id="mm">N
 								</span>
-								<span class="tooltiptext">BB OS</span>
+								<span class="taskbar-control-label">Launcher</span>
 							</biv>
 						</your>
 						<your class="taskbar-control" onclick="opensearchpanel()">
-							<biv draggable="true" class="app-shortcut tooltip adock sizableuielement" aria-label="Search">
+							<biv draggable="true" class="app-shortcut adock sizableuielement" aria-label="Search">
 								<span ic class="material-symbols-rounded searchbtnac directxicons">
 									search
 								</span>
-								<span class="tooltiptext">Search</span>
+								<span class="taskbar-control-label">Search apps, files, settings</span>
 							</biv>
 						</your>
 					</section>
@@ -183,7 +180,7 @@
 								p ic
 							</span>
 						</div>
-						<div class="navmalobj">
+						<div class="navmalobj nav-clock" onclick="openNotificationPanel()">
 							<hitbx class="hitbox" title="time" id="draggable-time" draggable="true">
 								<span id="time-display">...</span>
 								<span id="date-display"></span>
@@ -193,6 +190,7 @@
 				</div>
 			</nav>
 		</div>
+		<input id="desktop-file-picker" type="file" multiple hidden>
 
 		<dialog id="appdmod" class="scalableui onramcloseable navWindows">
 			<div class="appdmodestuff">
@@ -365,9 +363,15 @@
 		<dialog id="searchwindow" class="scalableui onramcloseable navWindows">
 			<div class="searchwincont">
 				<div class="searchside">
+					<div class="search-titlebar">
+						<span>Search</span>
+						<button onclick="gid('searchwindow').close()">
+							<span class="material-symbols-rounded">close</span>
+						</button>
+					</div>
 					<div class="searchinputcont">
 						<span class="material-symbols-rounded" id="searchiconthingy">search</span>
-						<input placeholder="Search files..." id="strtsear" onkeyup="strtappse(event)">
+						<input placeholder="Search apps, files, and folders" id="strtsear" onkeyup="strtappse(event)">
 					</div>
 					<div class="strtappsugs" id="strtappsugs">
 					</div>
@@ -394,6 +398,66 @@
 
 						</div>
 					</div>
+				</div>
+			</div>
+		</dialog>
+
+		<dialog id="notificationPanel" class="scalableui onramcloseable navWindows">
+			<div class="notification-panel-shell">
+				<div class="notification-panel-header">
+					<div>
+						<span id="notificationPanelTime">--:--</span>
+						<small id="notificationPanelDate">Today</small>
+					</div>
+					<button onclick="gid('notificationPanel').close()">
+						<span class="material-symbols-rounded">close</span>
+					</button>
+				</div>
+				<div class="notification-account-card">
+					<span class="material-symbols-rounded">account_circle</span>
+					<div>
+						<b id="notificationPanelUser">User</b>
+						<small>Password is stored locally in this browser. New installs use the default password: nova.</small>
+					</div>
+				</div>
+				<div class="notification-panel-status">
+					<button onclick="toast('Focus mode is ready for study sessions.')">
+						<span class="material-symbols-rounded">do_not_disturb_on</span>
+						Focus
+					</button>
+					<button onclick="openapp('settings', 1); gid('notificationPanel').close();">
+						<span class="material-symbols-rounded">palette</span>
+						Theme
+					</button>
+					<button onclick="openapp('musicplayer', 1); gid('notificationPanel').close();">
+						<span class="material-symbols-rounded">library_music</span>
+						Music
+					</button>
+				</div>
+				<div class="desktop-widget-actions panel-actions">
+					<button onclick="triggerDesktopFilePicker()">
+						<span class="material-symbols-rounded">upload_file</span>
+						Add files
+					</button>
+					<button onclick="opensearchpanel(); gid('notificationPanel').close();">
+						<span class="material-symbols-rounded">search</span>
+						Search
+					</button>
+					<button onclick="openapp('docs', 1)">
+						<span class="material-symbols-rounded">article</span>
+						Docs
+					</button>
+					<button onclick="displayNotifications('clear')">
+						<span class="material-symbols-rounded">done_all</span>
+						Clear
+					</button>
+				</div>
+				<div class="notiflist panel-notifications">
+					<div class="notiflistnav">
+						<span>Notifications</span>
+						<span class="material-symbols-rounded" onclick="displayNotifications('clear');">delete_sweep</span>
+					</div>
+					<div id="panelnotiflist">No new notifications</div>
 				</div>
 			</div>
 		</dialog>

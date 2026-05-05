@@ -1,4 +1,4 @@
-var batteryLevel, winds = {}, memory = {}, _nowapp, fulsapp = false, appsHistory = [], nowwindow, appicns = {}, fileslist = [], badlaunch = false, initmenuload = true, fileTypeAssociations = {}, handlers = {}, Gtodo, notifLog = {}, initialization = false, onstartup = [], novaFeaturedImage = `Dev.png`, defAppsList = [
+var batteryLevel, winds = {}, memory = {}, _nowapp, fulsapp = false, appsHistory = [], nowwindow, appicns = {}, fileslist = [], badlaunch = false, initmenuload = true, fileTypeAssociations = {}, handlers = {}, Gtodo, notifLog = {}, initialization = false, onstartup = [], desktopWidgetTimer, novaFeaturedImage = `Dev.png`, defAppsList = [
 	"files",
 	"settings",
 	"calculator",
@@ -8,7 +8,17 @@ var batteryLevel, winds = {}, memory = {}, _nowapp, fulsapp = false, appsHistory
 	"browser",
 	"time",
 	"gallery",
-	"studio"
+	"studio",
+	"docs",
+	"maps",
+	"notes",
+	"pdfreader",
+	"musicplayer",
+	"paint",
+	"markdown",
+	"calendar",
+	"taskboard",
+	"terminal"
 ], timeFormat, timetypecondition = true, genTaskBar, genDesktop, nonotif;
 
 const TASKBAR_UI_CONFIG = {
@@ -32,6 +42,16 @@ function applyTaskbarLayout(navSettings = {}) {
 		: TASKBAR_UI_CONFIG.alignment;
 
 	nav.dataset.taskbarAlign = normalizeTaskbarAlignment(configuredAlignment);
+}
+
+function enableFullscreenOnFirstInteraction() {
+	const enterFullscreen = () => {
+		if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+		document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => { });
+	};
+
+	document.addEventListener("pointerdown", enterFullscreen, { once: true });
+	document.addEventListener("keydown", enterFullscreen, { once: true });
 }
 
 function getTaskbarActiveWindowId() {
@@ -65,6 +85,18 @@ function refreshTaskbarStates() {
 		shortcut.classList.toggle("is-active", winId === activeWindowId);
 		shortcut.classList.toggle("is-minimized", winState === "minimized");
 	});
+
+	if (typeof updateDesktopWidget === "function") updateDesktopWidget();
+}
+
+function ensureWelcomeNotification() {
+	if (Object.values(notifLog).some(item => item.title === "Welcome to BB OS")) return;
+	const username = CurrentUsername || "Guest";
+	addNotificationLog(
+		"Welcome to BB OS",
+		`Signed in as ${username}. Your OS files and password stay in this browser storage.`,
+		"BB OS"
+	);
 }
 
 function findRunningWindowByAppId(appId) {
@@ -299,11 +331,13 @@ async function startup() {
 			updateTime();
 			setsrtpprgbr(80);
 			await checkdmode();
+			await ensureDefaultAppsAvailable();
 			setsrtpprgbr(90);
 			await genTaskBar();
 			setsrtpprgbr(100);
 			gid('startupterms').innerHTML = "Startup completed";
 			await genDesktop();
+			ensureWelcomeNotification();
 			closeElementedis();
 
 			let fetchupdatedataver;
@@ -401,14 +435,13 @@ async function openn() {
 	if (x.length === 0 && initmenuload) {
 		initmenuload = false;
 		gid("appdmod").close();
-		let choicetoreinst = await justConfirm(
-			`Re-initialize OS?`,
-			`Did the OS initialization fail? If yes, we can re-initialize your OS and install all the default apps. \n\nBB OS did not find any apps while the initial load of the BB OS menu. \n\nRe-initializing your OS may delete your data.`
-		);
-		if (choicetoreinst) {
-			initializeOS();
-		}
-		return;
+		gid("edison").showModal();
+		gid("startupterms").innerText = "Installing default apps...";
+		await installdefaultapps();
+		await genTaskBar();
+		await genDesktop();
+		closeElementedis();
+		return openn();
 	}
 
 	initmenuload = false;
@@ -477,19 +510,19 @@ async function loadrecentapps() {
 	gid("serrecentapps").innerHTML = ``
 	if (appsHistory.length < 1) {
 		gid("partrecentapps").style.display = "none";
-		gid("serrecentapps").innerHTML = `No recent apps`
 		return;
 	} else {
 		gid("partrecentapps").style.display = "block";
 	}
 	let x = await getFileNamesByFolder("Apps");
-	x.reverse();
-	Promise.all(x.map(async (app) => {
-		if (!appsHistory.includes(app.name)) {
-			return
-		}
+	const recentNames = [...new Set(appsHistory.slice().reverse())].slice(0, 8);
+	const appsByName = new Map(x.map(app => [basename(app.name).toLowerCase(), app]));
+	Promise.all(recentNames.map(async (recentName) => {
+		const app = appsByName.get(basename(recentName).toLowerCase());
+		if (!app) return;
+
 		var appShortcutDiv = document.createElement("div");
-		appShortcutDiv.className = "app-shortcut ctxAvail sizableuielement";
+		appShortcutDiv.className = "recent-app-card ctxAvail sizableuielement";
 		appShortcutDiv.setAttribute("unid", app.id || '');
 		appShortcutDiv.addEventListener("click", () => openapp(app.name, app.id));
 		var iconSpan = document.createElement("span");
@@ -529,7 +562,9 @@ async function loadrecentapps() {
 		appShortcutDiv.appendChild(nameSpan);
 		gid("serrecentapps").appendChild(appShortcutDiv);
 	})).then(async () => {
-
+		if (!gid("serrecentapps").children.length) {
+			gid("partrecentapps").style.display = "none";
+		}
 		gid("novamenusearchinp").focus();
 	}).catch((error) => {
 		console.error('An error occurred:', error);
@@ -745,8 +780,9 @@ async function fetchData(url) {
 }
 var content;
 function putwinontop(x) {
+	const baseWindowZ = 20;
 	Object.keys(winds).forEach(wid => {
-		if (gid(`window${wid}`).style.zIndex)
+		if (gid(`window${wid}`)?.style.zIndex)
 			winds[wid].zIndex = Number(gid(`window${wid}`).style.zIndex || 0);
 		else
 			return;
@@ -754,11 +790,11 @@ function putwinontop(x) {
 
 	if (Object.keys(winds).length > 1) {
 		const windValues = Object.values(winds).map(wind => Number(wind.zIndex) || 0);
-		const maxWindValue = Math.max(...windValues);
+		const maxWindValue = Math.max(baseWindowZ, ...windValues);
 		document.getElementById(x).style.zIndex = maxWindValue + 1;
 		normalizeZIndexes(x);
 	} else {
-		document.getElementById(x).style.zIndex = 0;
+		document.getElementById(x).style.zIndex = baseWindowZ;
 	}
 	const focusedWindowId = x.replace(/^window/, '');
 	if (winds[focusedWindowId]) nowapp = focusedWindowId;
@@ -773,6 +809,7 @@ function isWinOnTop(x) {
 }
 
 function normalizeZIndexes(excludeWindowId = null) {
+	const baseWindowZ = 20;
 	const windValues = Object.entries(winds)
 		.filter(([key]) => key !== excludeWindowId)
 		.map(([_, wind]) => Number(wind.zIndex) || 0);
@@ -781,7 +818,7 @@ function normalizeZIndexes(excludeWindowId = null) {
 	if (uniqueSorted.length === uniqueSorted[uniqueSorted.length - 1]) return;
 
 	const zIndexMap = uniqueSorted.reduce((map, value, index) => {
-		map[value] = index;
+		map[value] = baseWindowZ + index;
 		return map;
 	}, {});
 
@@ -1293,15 +1330,6 @@ async function initializeOS() {
 	if (badlaunch) { return }
 	dbCache = null;
 	cryptoKeyCache = null;
-	await say(`
-		<h2> BB OS is open source.</h2>
-		<p>
-		This OS is made for hackathon. 
-		</p><div style="background:: #001b00; color: lightgreen; padding: 0.8rem; border: 1px solid #254625;font-size:inherit; border-radius: .5rem; margin: 0.8rem 0; display: flex;flex-direction:row; align-items: center; justify-content: flex-start;gap:0.5rem;">
-			<span class="material-symbols-rounded">check</span>
-			<div>We do not store or share your personal information.</div>
-		</div>
-	`);
 	console.log("Setting Up bb\n\nUsername: " + CurrentUsername + "\nWith: Sample preset\nUsing host: " + location.href)
 	initialization = true
 	memory = {
@@ -1330,11 +1358,51 @@ async function initializeOS() {
 				let textcontentwelcome = await fetch("appdata/welcome.html");
 				textcontentwelcome = await textcontentwelcome.text();
 				await createFile('Downloads/', 'Welcome.html', 'html', textcontentwelcome)
+				await createFile('Desktop/', 'Welcome.html', 'html', textcontentwelcome)
 				notify("Welcome to BB OS, " + CurrentUsername + "!", "I really think you'd enjoy it!", "BB OS")
 				initialization = false;
 			})
 	})
-} async function updateApp(appName, attempt = 1) {
+}
+
+const legacyInitializeOS = initializeOS;
+initializeOS = async function () {
+	if (badlaunch) return;
+	dbCache = null;
+	cryptoKeyCache = null;
+	initialization = true;
+	memory = {
+		root: {
+			"Downloads/": {},
+			"Apps/": {},
+			"Desktop/": {},
+			"Dock/": {},
+			"Media/": {}
+		}
+	};
+
+	try {
+		await setdb();
+		await saveMagicStringInLocalStorage(password);
+		await ensureAllSettingsFilesExist();
+		await installdefaultapps();
+		await getFileNamesByFolder("Apps");
+		await sharedStore.set(CurrentUsername, "icon", "data:image/svg+xml,%3Csvg%20fill%3D%22%23ffffff%22%20width%3D%22256%22%20height%3D%22256%22%20viewBox%3D%220%200%20256%20256%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M128%2024a104%20104%200%201%200%200%20208%20104%20104%200%200%200%200-208Zm0%2048a32%2032%200%201%201-32%2032%2032%2032%200%200%201%2032-32Zm0%20136a79.6%2079.6%200%200%201-56-23.3c7.5-24.7%2029.8-40.7%2056-40.7s48.5%2016%2056%2040.7A79.6%2079.6%200%200%201%20128%20208Z%22/%3E%3C/svg%3E");
+		nonotif = false;
+		await startup();
+		let textcontentwelcome = await fetch("appdata/welcome.html");
+		textcontentwelcome = await textcontentwelcome.text();
+		await createFile("Downloads/", "Welcome.html", "html", textcontentwelcome);
+		await createFile("Desktop/", "Welcome.html", "html", textcontentwelcome);
+		notify("Welcome to BB OS, " + CurrentUsername + "!", "I really think you'd enjoy it!", "BB OS");
+	} catch (error) {
+		console.error("Error during initialization:", error);
+	} finally {
+		initialization = false;
+	}
+};
+
+async function updateApp(appName, attempt = 1) {
 	try {
 		const filePath = "appdata/" + appName + ".html";
 		const response = await fetch(filePath);
@@ -1346,15 +1414,30 @@ async function initializeOS() {
 		return true;
 	} catch (error) {
 		console.error("Error updating " + appName + ":", error.message);
-		if (attempt < maxRetries) {
+		const retryLimit = (typeof maxRetries !== "undefined") ? maxRetries : 3;
+		if (attempt < retryLimit) {
 			return await updateApp(appName, attempt + 1);
 		} else {
 			console.error("Max retries reached for " + appName + ". Skipping update.");
-			failedApps.push(appName);
+			if (typeof failedApps !== "undefined" && Array.isArray(failedApps)) failedApps.push(appName);
 			return false;
 		}
 	}
 }
+
+async function ensureDefaultAppsAvailable() {
+	try {
+		const installedApps = await getFileNamesByFolder("Apps");
+		const installedNames = new Set(installedApps.map(app => basename(app.name).toLowerCase()));
+		const missingApps = defAppsList.filter(appName => !installedNames.has(appName.toLowerCase()));
+		for (const appName of missingApps) {
+			await updateApp(appName);
+		}
+	} catch (error) {
+		console.error("Error checking default apps:", error);
+	}
+}
+
 async function installdefaultapps() {
 	nonotif = true;
 	gid("edison").showModal();
@@ -1386,11 +1469,10 @@ async function installdefaultapps() {
 		}, 2500);
 
 		for (let i = 0; i < defAppsList.length; i++) {
-			await new Promise(res => setTimeout(res, 300));
 			const appName = defAppsList[i];
-			const appUpdatePromise = updateApp(appName);
-
-			await Promise.race([appUpdatePromise, new Promise(res => setTimeout(res, 3000))]);
+			gid('startupterms').innerText = `Installing ${toTitleCase(appName)}...`;
+			const success = await updateApp(appName);
+			if (!success) failedApps.push(appName);
 			setsrtpprgbr(Math.round((i + 1) / defAppsList.length * 100));
 		}
 		clearInterval(interval);
@@ -1674,9 +1756,18 @@ async function notify(...args) {
 	} else {
 		console.error("One or more DOM elements not found.");
 	}
-	const notificationID = genUID();
-	notifLog[notificationID] = { title, description, appname };
+	addNotificationLog(title, description, appname);
 	(isid) ? delete notificationContext[isid] : 0;
+}
+
+function addNotificationLog(title, description, appname = "System") {
+	const notificationID = genUID();
+	notifLog[notificationID] = {
+		title,
+		description,
+		appname,
+		time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+	};
 }
 
 let toastInProgress = false;
@@ -1745,14 +1836,23 @@ function displayNotifications(x) {
 		notifLog = {};
 
 	}
-	const notifList = document.getElementById("notiflist");
-	notifList.innerHTML = "";
-	if (Object.values(notifLog).length == 0) {
-		document.querySelector(".notiflist").style.display = "none";
-	} else {
-		document.querySelector(".notiflist").style.display = "flex";
-	}
-	Object.values(notifLog).forEach(({ title, description, appname }) => {
+	const notifTargets = [document.getElementById("notiflist"), document.getElementById("panelnotiflist")].filter(Boolean);
+	const notifications = Object.values(notifLog);
+	const navLabels = document.querySelectorAll(".notiflistnav span:first-child");
+	navLabels.forEach(label => {
+		label.innerText = notifications.length ? `Notifications (${notifications.length})` : "Notifications";
+	});
+	document.querySelectorAll(".notiflist").forEach(list => {
+		list.style.display = notifications.length ? "flex" : "none";
+	});
+
+	notifTargets.forEach(notifList => {
+		notifList.innerHTML = "";
+		if (!notifications.length) {
+			notifList.innerHTML = `<div class="notification-empty"><span class="material-symbols-rounded">notifications_off</span><b>All clear</b><small>No new notifications right now.</small></div>`;
+			return;
+		}
+		notifications.forEach(({ title, description, appname, time }) => {
 		const notifDiv = document.createElement("div");
 		notifDiv.className = "notification";
 		const titleDiv = document.createElement("div");
@@ -1763,12 +1863,26 @@ function displayNotifications(x) {
 		descDiv.innerText = description;
 		const appNameDiv = document.createElement("div");
 		appNameDiv.className = "notifAppName";
-		appNameDiv.innerText = appname;
+		appNameDiv.innerText = `${appname}${time ? " - " + time : ""}`;
 		notifDiv.appendChild(appNameDiv);
 		notifDiv.appendChild(titleDiv);
 		notifDiv.appendChild(descDiv);
 		notifList.appendChild(notifDiv);
 	});
+	});
+}
+
+function openNotificationPanel() {
+	ensureWelcomeNotification();
+	updateTime();
+	const panel = gid("notificationPanel");
+	if (!panel) return;
+	const now = new Date();
+	gid("notificationPanelTime").innerText = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+	gid("notificationPanelDate").innerText = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+	gid("notificationPanelUser").innerText = CurrentUsername || "Guest";
+	displayNotifications();
+	panel.showModal();
 }
 function runAsOSL(content) {
 	const encodedContent = encodeURIComponent(content).replace(/'/g, "%27").replace(/"/g, "%22");
@@ -1977,11 +2091,220 @@ async function realgenDesktop() {
 			appShortcutDiv.appendChild(nameSpan);
 			gid("desktop").appendChild(appShortcutDiv);
 		});
+		renderDesktopWidgets();
 		renderWall();
 	} catch (error) {
 		console.error(error)
 	}
 
+}
+
+function renderDesktopWidgets() {
+	const desktop = gid("desktop");
+	if (!desktop) return;
+
+	createDesktopWidget("desktop-widget", "", `
+			<div class="desktop-widget-time" data-widget-time>00:00</div>
+			<div class="desktop-widget-date" data-widget-date></div>
+			<div class="desktop-widget-row">
+				<span class="material-symbols-rounded">person</span>
+				<span data-widget-user>Admin</span>
+			</div>
+			<div class="desktop-widget-row">
+				<span class="material-symbols-rounded">desktop_windows</span>
+				<span data-widget-windows>Ready</span>
+			</div>
+			<div class="desktop-widget-actions">
+				<button onclick="triggerDesktopFilePicker()">
+					<span class="material-symbols-rounded">upload_file</span>
+					Add files
+				</button>
+				<button onclick="openapp('maps', 1)">
+					<span class="material-symbols-rounded">map</span>
+					Maps
+				</button>
+			</div>
+		`, { right: 24, top: 24 });
+
+	createDesktopWidget("desktop-widget-system", "compact", `
+			<div class="desktop-widget-title">
+				<span class="material-symbols-rounded">speed</span>
+				System
+			</div>
+			<div class="desktop-widget-row">
+				<span class="material-symbols-rounded">battery_full</span>
+				<span data-widget-battery>Battery ready</span>
+			</div>
+			<div class="desktop-widget-row">
+				<span class="material-symbols-rounded">apps</span>
+				<span data-widget-installed>Apps ready</span>
+			</div>
+			<div class="desktop-widget-row">
+				<span class="material-symbols-rounded">home_storage</span>
+				<span data-widget-homefiles>Home files ready</span>
+			</div>
+			<div class="desktop-widget-actions">
+				<button onclick="openapp('store', 1)">
+					<span class="material-symbols-rounded">storefront</span>
+					Store
+				</button>
+				<button onclick="openapp('settings', 1)">
+					<span class="material-symbols-rounded">tune</span>
+					Settings
+				</button>
+			</div>
+		`, { right: 24, top: 245 });
+
+	createDesktopWidget("desktop-widget-quickapps", "compact", `
+			<div class="desktop-widget-title">
+				<span class="material-symbols-rounded">bolt</span>
+				Quick apps
+			</div>
+			<div class="desktop-widget-actions stacked">
+				<button onclick="openapp('browser', 1)">
+					<span class="material-symbols-rounded">language</span>
+					Browser
+				</button>
+				<button onclick="openapp('musicplayer', 1)">
+					<span class="material-symbols-rounded">library_music</span>
+					Music
+				</button>
+				<button onclick="openapp('paint', 1)">
+					<span class="material-symbols-rounded">brush</span>
+					Paint
+				</button>
+				<button onclick="openapp('markdown', 1)">
+					<span class="material-symbols-rounded">article</span>
+					Markdown
+				</button>
+			</div>
+		`, { right: 300, top: 24 });
+
+	updateDesktopWidget();
+	clearInterval(desktopWidgetTimer);
+	desktopWidgetTimer = setInterval(updateDesktopWidget, 30000);
+}
+
+function getDesktopWidgetPositions() {
+	try {
+		return JSON.parse(localStorage.getItem("bbos.widgetPositions") || "{}");
+	} catch (error) {
+		return {};
+	}
+}
+
+function saveDesktopWidgetPosition(id, left, top) {
+	const positions = getDesktopWidgetPositions();
+	positions[id] = { left, top };
+	localStorage.setItem("bbos.widgetPositions", JSON.stringify(positions));
+}
+
+function createDesktopWidget(id, className, html, fallbackPosition) {
+	const desktop = gid("desktop");
+	let widget = gid(id);
+	if (!widget) {
+		widget = document.createElement("section");
+		widget.id = id;
+		widget.className = `desktop-widget ${className || ""}`.trim();
+		widget.innerHTML = html;
+		desktop.appendChild(widget);
+	} else {
+		widget.className = `desktop-widget ${className || ""}`.trim();
+		widget.innerHTML = html;
+	}
+
+	const saved = getDesktopWidgetPositions()[id];
+	const left = saved?.left ?? Math.max(24, desktop.clientWidth - (fallbackPosition.right || 24) - widget.offsetWidth);
+	const top = saved?.top ?? fallbackPosition.top ?? 24;
+	widget.style.left = `${Math.min(left, Math.max(24, desktop.clientWidth - widget.offsetWidth - 12))}px`;
+	widget.style.top = `${Math.min(top, Math.max(12, desktop.clientHeight - widget.offsetHeight - 12))}px`;
+	makeWidgetMovable(widget);
+	return widget;
+}
+
+function makeWidgetMovable(widget) {
+	if (widget.dataset.movableReady === "true") return;
+	widget.dataset.movableReady = "true";
+	widget.addEventListener("pointerdown", (event) => {
+		if (event.button !== 0 || event.target.closest("button, input, textarea, a, select")) return;
+		const desktop = gid("desktop");
+		const startX = event.clientX;
+		const startY = event.clientY;
+		const startLeft = widget.offsetLeft;
+		const startTop = widget.offsetTop;
+		widget.classList.add("dragging");
+		widget.setPointerCapture(event.pointerId);
+
+		const moveWidget = (moveEvent) => {
+			const maxLeft = Math.max(8, desktop.clientWidth - widget.offsetWidth - 8);
+			const maxTop = Math.max(8, desktop.clientHeight - widget.offsetHeight - 8);
+			const nextLeft = Math.min(Math.max(8, startLeft + moveEvent.clientX - startX), maxLeft);
+			const nextTop = Math.min(Math.max(8, startTop + moveEvent.clientY - startY), maxTop);
+			widget.style.left = `${nextLeft}px`;
+			widget.style.top = `${nextTop}px`;
+		};
+
+		const stopMoving = () => {
+			widget.classList.remove("dragging");
+			saveDesktopWidgetPosition(widget.id, widget.offsetLeft, widget.offsetTop);
+			widget.removeEventListener("pointermove", moveWidget);
+			widget.removeEventListener("pointerup", stopMoving);
+			widget.removeEventListener("pointercancel", stopMoving);
+		};
+
+		widget.addEventListener("pointermove", moveWidget);
+		widget.addEventListener("pointerup", stopMoving);
+		widget.addEventListener("pointercancel", stopMoving);
+	});
+}
+
+function updateDesktopWidget() {
+	const widget = gid("desktop-widget");
+	if (!widget) return;
+
+	const now = new Date();
+	const visibleWindows = Object.values(winds).filter(win => win.visualState !== "hidden" && win.visualState !== "minimized").length;
+	const formatter = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+	widget.querySelector("[data-widget-time]").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+	widget.querySelector("[data-widget-date]").textContent = formatter.format(now);
+	widget.querySelector("[data-widget-user]").textContent = CurrentUsername || "Guest";
+	widget.querySelector("[data-widget-windows]").textContent = visibleWindows ? `${visibleWindows} window${visibleWindows === 1 ? "" : "s"} open` : "Ready";
+
+	document.querySelectorAll("[data-widget-battery]").forEach(item => {
+		const level = typeof batteryLevel === "number" ? Math.round(batteryLevel * 100) : null;
+		item.textContent = level === null ? "Battery ready" : `${level}% battery`;
+	});
+	document.querySelectorAll("[data-widget-installed]").forEach(item => {
+		item.textContent = `${defAppsList.length}+ local apps`;
+	});
+	getFileNamesByFolder("Desktop").then(files => {
+		document.querySelectorAll("[data-widget-homefiles]").forEach(item => {
+			item.textContent = `${files.length} item${files.length === 1 ? "" : "s"} on home`;
+		});
+	}).catch(() => { });
+}
+
+function triggerDesktopFilePicker() {
+	const picker = gid("desktop-file-picker");
+	if (picker) picker.click();
+}
+
+async function addFilesToDesktop(fileList) {
+	const files = Array.from(fileList || []);
+	for (const file of files) {
+		const content = await new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsDataURL(file);
+		});
+		await createFile("Desktop/", file.name, mtpetxt(file.name) || "", content, { via: "desktop-import" });
+	}
+	if (files.length) {
+		toast(`${files.length} file${files.length === 1 ? "" : "s"} added to homescreen`);
+		await genDesktop();
+	}
 }
 
 async function renderWall() {
@@ -2125,12 +2448,21 @@ function domLoad_checkedgecases() {
 document.addEventListener("DOMContentLoaded", async function () {
 	sysLog("DOM", "Loaded");
 	domLoad_checkedgecases()
+	enableFullscreenOnFirstInteraction();
 
 	genTaskBar = debounce(realgenTaskBar, 500);
 	genDesktop = debounce(realgenDesktop, 500);
 
 	const searchInput5342 = document.querySelector('#novamenusearchinp');
+	const desktopFilePicker = document.querySelector('#desktop-file-picker');
 	let keyHeld = false;
+
+	if (desktopFilePicker) {
+		desktopFilePicker.addEventListener("change", async (event) => {
+			await addFilesToDesktop(event.target.files);
+			event.target.value = "";
+		});
+	}
 
 	searchInput5342.addEventListener('keydown', () => {
 		keyHeld = true;

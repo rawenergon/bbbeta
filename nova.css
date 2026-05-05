@@ -1,7 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;800&display=swap');
-
 :root {
 	--font-size-base: 1rem;
+	--font-family-ui: Inter, "Segoe UI", Roboto, Arial, sans-serif;
 
 	/* basic colors */
 	--col-bg1: #101010;
@@ -108,7 +107,7 @@ body {
 	background-color: var(--col-bg1);
 	color: var(--col-txt1);
 	user-select: none;
-	font-family: 'Poppins', sans-serif;
+	font-family: var(--font-family-ui);
 }
 
 body * {

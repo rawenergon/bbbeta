@@ -5,8 +5,16 @@ var defaultAppIcon = `<?xml version="1.0" encoding="UTF-8"?> <svg version="1.1" 
 var globalmimeDb = null;
 
 function updateNavSize() {
-	navheight = parseFloat(getComputedStyle(gid("novanav")).height);
-	navheight = navheight + (0.3 * remToPx);
+	const nav = gid("novanav");
+	if (!nav || getComputedStyle(nav).display === "none") {
+		navheight = 0;
+		document.documentElement.style.setProperty("--desktop-bottom-inset", "0px");
+		return;
+	}
+
+	const rect = nav.getBoundingClientRect();
+	navheight = Math.max(0, window.innerHeight - rect.top);
+	document.documentElement.style.setProperty("--desktop-bottom-inset", `${navheight}px`);
 }
 
 // more stuff

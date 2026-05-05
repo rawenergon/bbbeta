@@ -375,10 +375,12 @@ const defaultFileData = {
     }
 };
 async function ensureFileExists(fileName = "preferences.json", dirPath = "System/") {
-    await updateMemoryData();
+    const latestMemory = await updateMemoryData();
+    if (!latestMemory?.root) return false;
+
     try {
         const pathParts = dirPath.split('/').filter(Boolean);
-        let currentPath = memory.root;
+        let currentPath = latestMemory.root;
 
         for (let part of pathParts) {
             part += "/";
@@ -395,8 +397,10 @@ async function ensureFileExists(fileName = "preferences.json", dirPath = "System
             await createFile(dirPath, fileName, "json", fileDataUri);
             await updateMemoryData();
         }
+        return true;
     } catch (err) {
         console.error(`Error ensuring file ${fileName} exists in ${dirPath}:`, err);
+        return false;
     }
 }
 
@@ -432,7 +436,9 @@ async function getSetting(settingKey, fileName = "preferences.json", dirPath = "
 
     const fetchPromise = enqueueTask(async () => {
         try {
-            await ensureFileExists(fileName, dirPath);
+            const fileReady = await ensureFileExists(fileName, dirPath);
+            if (!fileReady || !memory?.root) return null;
+
             const pathParts = dirPath.split('/').filter(Boolean);
             let currentPath = memory.root;
 
@@ -473,8 +479,9 @@ async function getSetting(settingKey, fileName = "preferences.json", dirPath = "
 async function setSetting(settingKey, settingValue, fileName = "preferences.json", dirPath = "System/") {
     return enqueueTask(async () => {
         try {
-            await ensureFileExists(fileName, dirPath);
+            const fileReady = await ensureFileExists(fileName, dirPath);
             await updateMemoryData();
+            if (!fileReady || !memory?.root) return;
 
             const pathParts = dirPath.split('/').filter(Boolean);
             let currentPath = memory.root;
@@ -521,7 +528,9 @@ async function setSetting(settingKey, settingValue, fileName = "preferences.json
 async function remSettingKey(settingKey, fileName = "preferences.json", dirPath = "System/") {
     return enqueueTask(async () => {
         try {
-            await ensureFileExists(fileName, dirPath);
+            const fileReady = await ensureFileExists(fileName, dirPath);
+            if (!fileReady || !memory?.root) return;
+
             const pathParts = dirPath.split('/').filter(Boolean);
             let currentPath = memory.root;
 
@@ -563,7 +572,9 @@ async function remSettingKey(settingKey, fileName = "preferences.json", dirPath 
 async function resetSettings(fileName = "preferences.json", dirPath = "System/") {
     return enqueueTask(async () => {
         try {
-            await ensureFileExists(fileName, dirPath);
+            const fileReady = await ensureFileExists(fileName, dirPath);
+            if (!fileReady || !memory?.root) return;
+
             const fullPath = `${dirPath}${fileName}`;
             const defaultData = defaultFileData[fullPath] || {};
 

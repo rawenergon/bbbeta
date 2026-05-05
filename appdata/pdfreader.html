@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="permissions" content="unsandboxed">
+	<meta name="nova-aspectratio" content="10/7">
+	<meta name="nova-icon" content="<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><rect width='48' height='48' rx='12' fill='#dc2626'/><path d='M15 9h14l6 6v24H15z' fill='#fff'/><path d='M29 9v7h6' fill='#fecaca'/><text x='18' y='31' font-size='9' font-family='Arial' font-weight='700' fill='#dc2626'>PDF</text></svg>">
+	<title>PDF Reader</title>
+	<style>
+		* { box-sizing: border-box; }
+		html, body { margin: 0; width: 100%; height: 100%; background: var(--col-bg1); color: var(--col-txt1); font-family: var(--font); overflow: hidden; }
+		body { display: grid; grid-template-rows: auto 1fr; }
+		header { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 9px 10px; background: color-mix(in srgb, var(--col-bg2) 88%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent); }
+		.title { min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+		.title-text { min-width: 0; }
+		#filename { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+		#filemeta { display: block; font-size: 12px; opacity: .65; margin-top: 2px; }
+		.toolbar { display: flex; align-items: center; gap: 7px; overflow-x: auto; scrollbar-width: none; }
+		.toolbar::-webkit-scrollbar { display: none; }
+		button, label, select { min-height: 34px; border: 1px solid color-mix(in srgb, var(--col-txt1) 12%, transparent); background: color-mix(in srgb, var(--col-txt1) 7%, transparent); color: var(--col-txt1); border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; cursor: pointer; font: inherit; white-space: nowrap; }
+		label.primary { background: var(--colors-accent); color: white; border-color: transparent; }
+		input { display: none; }
+		main { min-height: 0; position: relative; background: color-mix(in srgb, var(--col-bg1) 78%, #111); }
+		iframe { width: 100%; height: 100%; border: 0; background: #2b2b2b; }
+		.empty { position: absolute; inset: 14px; border: 1px dashed color-mix(in srgb, var(--col-txt1) 20%, transparent); border-radius: 12px; display: grid; place-items: center; text-align: center; color: color-mix(in srgb, var(--col-txt1) 72%, transparent); padding: 28px; background: color-mix(in srgb, var(--col-bg2) 35%, transparent); }
+		.empty.dragover { border-color: var(--colors-accent); background: color-mix(in srgb, var(--colors-accent) 13%, var(--col-bg2)); }
+		.empty .material-symbols-rounded { font-size: 48px; color: var(--colors-accent); }
+		.empty h2 { margin: 8px 0 6px; }
+		.empty p { margin: 0; max-width: 440px; line-height: 1.45; }
+		@media (max-width: 760px) {
+			header { grid-template-columns: 1fr; }
+			.toolbar { justify-content: flex-start; }
+		}
+	</style>
+</head>
+
+<body>
+	<header>
+		<div class="title">
+			<span class="material-symbols-rounded">picture_as_pdf</span>
+			<div class="title-text">
+				<span id="filename">PDF Reader</span>
+				<small id="filemeta">Open or drop a PDF file</small>
+			</div>
+		</div>
+		<div class="toolbar">
+			<label class="primary"><span class="material-symbols-rounded">folder_open</span>Open<input id="file" type="file" accept="application/pdf"></label>
+			<select id="zoom" aria-label="Zoom mode">
+				<option value="page-width">Page width</option>
+				<option value="page-fit">Fit page</option>
+				<option value="100">100%</option>
+				<option value="125">125%</option>
+				<option value="150">150%</option>
+			</select>
+			<button id="newtab" disabled><span class="material-symbols-rounded">open_in_new</span>Open tab</button>
+			<button id="download" disabled><span class="material-symbols-rounded">download</span>Download</button>
+			<button id="clear" disabled><span class="material-symbols-rounded">close</span>Close</button>
+		</div>
+	</header>
+	<main id="dropzone">
+		<div id="empty" class="empty">
+			<div>
+				<span class="material-symbols-rounded">picture_as_pdf</span>
+				<h2>Open a PDF</h2>
+				<p>Choose a local file or drag it here. The reader uses your browser PDF engine, so it stays lightweight and offline-friendly.</p>
+			</div>
+		</div>
+		<iframe id="viewer" title="PDF viewer" hidden></iframe>
+	</main>
+	<script>
+		let currentUrl = "";
+		let currentFileName = "";
+		const viewer = document.getElementById("viewer");
+		const empty = document.getElementById("empty");
+		const filename = document.getElementById("filename");
+		const filemeta = document.getElementById("filemeta");
+		const zoom = document.getElementById("zoom");
+		const buttons = ["newtab", "download", "clear"].map(id => document.getElementById(id));
+
+		function formatBytes(bytes) {
+			if (!bytes) return "0 B";
+			const units = ["B", "KB", "MB", "GB"];
+			let size = bytes;
+			let unit = 0;
+			while (size >= 1024 && unit < units.length - 1) {
+				size /= 1024;
+				unit++;
+			}
+			return `${size.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+		}
+
+		function viewerUrl() {
+			return currentUrl ? `${currentUrl}#toolbar=1&navpanes=1&zoom=${encodeURIComponent(zoom.value)}` : "";
+		}
+
+		function setLoaded(file) {
+			if (currentUrl) URL.revokeObjectURL(currentUrl);
+			currentUrl = URL.createObjectURL(file);
+			currentFileName = file.name;
+			filename.textContent = file.name;
+			filemeta.textContent = `${formatBytes(file.size)} - ${file.type || "application/pdf"}`;
+			viewer.src = viewerUrl();
+			viewer.hidden = false;
+			empty.hidden = true;
+			buttons.forEach(button => button.disabled = false);
+		}
+
+		function openFile(file) {
+			if (!file) return;
+			if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+				filemeta.textContent = "That file is not a PDF.";
+				return;
+			}
+			setLoaded(file);
+		}
+
+		document.getElementById("file").addEventListener("change", event => openFile(event.target.files[0]));
+		zoom.addEventListener("change", () => { if (currentUrl) viewer.src = viewerUrl(); });
+		document.getElementById("newtab").onclick = () => { if (currentUrl) window.open(viewerUrl(), "_blank"); };
+		document.getElementById("download").onclick = () => {
+			if (!currentUrl) return;
+			const link = document.createElement("a");
+			link.href = currentUrl;
+			link.download = currentFileName || "document.pdf";
+			link.click();
+		};
+		document.getElementById("clear").onclick = () => {
+			if (currentUrl) URL.revokeObjectURL(currentUrl);
+			currentUrl = "";
+			currentFileName = "";
+			viewer.src = "";
+			viewer.hidden = true;
+			empty.hidden = false;
+			filename.textContent = "PDF Reader";
+			filemeta.textContent = "Open or drop a PDF file";
+			buttons.forEach(button => button.disabled = true);
+		};
+
+		document.getElementById("dropzone").addEventListener("dragover", event => {
+			event.preventDefault();
+			empty.classList.add("dragover");
+		});
+		document.getElementById("dropzone").addEventListener("dragleave", () => empty.classList.remove("dragover"));
+		document.getElementById("dropzone").addEventListener("drop", event => {
+			event.preventDefault();
+			empty.classList.remove("dragover");
+			openFile(event.dataTransfer.files[0]);
+		});
+		window.addEventListener("beforeunload", () => { if (currentUrl) URL.revokeObjectURL(currentUrl); });
+	</script>
+</body>
+
+</html>

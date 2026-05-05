@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Terminal</title>
+	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="permissions" content="unsandboxed, fileGet, fileSet, settings">
+	<meta name="nova-icon" content="<svg width='232' height='232' viewBox='0 0 232 232' fill='none' xmlns='http://www.w3.org/2000/svg'><rect width='232' height='232' rx='48' fill='#111827'/><rect x='43' y='57' width='146' height='118' rx='16' fill='#DCFCE7'/><path d='M72 96l24 20-24 20M105 139h52' stroke='#111827' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+	<style>
+		* { box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; margin: 0; background: #0b1017; color: #d7ffe5; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow: hidden; }
+		.shell { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+		header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; background: #101820; border-bottom: 1px solid #24372f; }
+		.title { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+		.status { color: #87d9a6; font-size: 12px; opacity: .86; }
+		#log { padding: 14px; overflow: auto; white-space: pre-wrap; line-height: 1.55; }
+		.line { display: block; margin-bottom: 2px; }
+		.promptline { color: #9ef5bd; }
+		.error { color: #ff8c9a; }
+		.muted { color: #93a89b; }
+		.good { color: #6ee7a0; }
+		form { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 10px; border-top: 1px solid #24372f; background: #101820; }
+		input { min-width: 0; background: transparent; border: 0; outline: 0; color: #d7ffe5; font: inherit; }
+		.prompt { color: #70e09b; }
+		kbd { background: #203126; border: 1px solid #314c3d; border-radius: 5px; padding: 1px 5px; color: #d7ffe5; }
+	</style>
+</head>
+
+<body>
+	<div class="shell">
+		<header>
+			<div class="title"><span class="material-symbols-rounded">terminal</span>BB OS Terminal</div>
+			<div class="status" id="status">ready</div>
+		</header>
+		<div id="log"></div>
+		<form id="form">
+			<span class="prompt">bbos&gt;</span>
+			<input id="cmd" autocomplete="off" autofocus spellcheck="false">
+		</form>
+	</div>
+	<script>
+		const log = document.getElementById("log");
+		const cmd = document.getElementById("cmd");
+		const status = document.getElementById("status");
+		let history = JSON.parse(localStorage.getItem("bbos.terminal.history") || "[]");
+		let historyIndex = history.length;
+
+		const commandNames = ["help", "apps", "files", "open", "date", "whoami", "theme", "note", "storage", "clear", "about"];
+
+		function escapeText(text) {
+			return String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+		}
+
+		function print(text = "", className = "") {
+			const line = document.createElement("span");
+			line.className = `line ${className}`.trim();
+			line.innerHTML = escapeText(text);
+			log.appendChild(line);
+			log.scrollTop = log.scrollHeight;
+		}
+
+		function setStatus(text) {
+			status.textContent = text;
+			setTimeout(() => status.textContent = "ready", 1600);
+		}
+
+		function parentCall(name, ...args) {
+			const api = window.parent && window.parent[name];
+			if (typeof api !== "function") throw new Error(`${name} is not available`);
+			return api(...args);
+		}
+
+		async function listFolder(folder) {
+			const files = await parentCall("getFileNamesByFolder", folder);
+			if (!files || files.length === 0) return `${folder || "root"} is empty.`;
+			return files.map(file => `- ${file.name}`).join("\n");
+		}
+
+		async function openApp(name) {
+			if (!name) return "Usage: open browser";
+			await parentCall("openapp", name.toLowerCase().replace(/\s+/g, ""), 1);
+			return `Opening ${name}...`;
+		}
+
+		async function readTheme() {
+			const wall = await parentCall("getSetting", "wall").catch(() => "");
+			const smartsearch = await parentCall("getSetting", "smartsearch").catch(() => "");
+			return `Theme settings\n- Wallpaper: ${wall ? "custom" : "default"}\n- Smart search: ${smartsearch ? "on" : "off"}`;
+		}
+
+		async function saveNote(text) {
+			if (!text) return "Usage: note remember to submit project";
+			const stamp = new Date().toLocaleString().replace(/[/:]/g, "-");
+			await parentCall("createFile", "Desktop/", `Terminal Note ${stamp}.txt`, "txt", text, { via: "terminal" });
+			return "Saved note to Desktop.";
+		}
+
+		function storageInfo() {
+			let used = 0;
+			for (let i = 0; i < localStorage.length; i++) {
+				const key = localStorage.key(i);
+				used += key.length + String(localStorage.getItem(key)).length;
+			}
+			return `Local browser storage: ${(used / 1024).toFixed(1)} KB used by this origin.`;
+		}
+
+		const commands = {
+			help: async () => [
+				"Commands:",
+				"  help                  Show this guide",
+				"  apps                  List installed apps",
+				"  files [folder]        List files, example: files Desktop",
+				"  open <app>            Open an app, example: open browser",
+				"  note <text>           Save a text note on Desktop",
+				"  date                  Show date and time",
+				"  whoami                Show current OS user",
+				"  theme                 Show theme details",
+				"  storage               Show local storage usage",
+				"  clear                 Clear terminal"
+			].join("\n"),
+			apps: () => listFolder("Apps"),
+			files: args => listFolder(args[0] ? args[0].replace(/\/?$/, "/") : "Desktop"),
+			open: args => openApp(args.join(" ")),
+			date: async () => new Date().toString(),
+			whoami: async () => window.parent.CurrentUsername || "Guest",
+			theme: readTheme,
+			note: args => saveNote(args.join(" ")),
+			storage: async () => storageInfo(),
+			about: async () => "BB OS is a lightweight browser desktop with local apps, widgets, and offline tools."
+		};
+
+		async function runCommand(raw) {
+			const parts = raw.trim().split(/\s+/);
+			const name = (parts.shift() || "").toLowerCase();
+			if (!name) return;
+			print(`bbos> ${raw}`, "promptline");
+			if (name === "clear") {
+				log.innerHTML = "";
+				return;
+			}
+			const handler = commands[name];
+			if (!handler) {
+				print(`Unknown command: ${name}. Type help.`, "error");
+				return;
+			}
+			try {
+				setStatus("working");
+				const result = await handler(parts);
+				print(result, "good");
+			} catch (error) {
+				print(error.message || String(error), "error");
+			}
+		}
+
+		document.getElementById("form").onsubmit = async event => {
+			event.preventDefault();
+			const value = cmd.value.trim();
+			if (!value) return;
+			history.push(value);
+			history = history.slice(-80);
+			localStorage.setItem("bbos.terminal.history", JSON.stringify(history));
+			historyIndex = history.length;
+			cmd.value = "";
+			await runCommand(value);
+		};
+
+		cmd.addEventListener("keydown", event => {
+			if (event.key === "ArrowUp") {
+				event.preventDefault();
+				historyIndex = Math.max(0, historyIndex - 1);
+				cmd.value = history[historyIndex] || "";
+			}
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				historyIndex = Math.min(history.length, historyIndex + 1);
+				cmd.value = history[historyIndex] || "";
+			}
+			if (event.key === "Tab") {
+				event.preventDefault();
+				const match = commandNames.find(name => name.startsWith(cmd.value.toLowerCase()));
+				if (match) cmd.value = match + " ";
+			}
+		});
+
+		print("BB OS Terminal", "good");
+		print("Type help. Use ArrowUp for history and Tab for command completion.", "muted");
+		cmd.focus();
+	</script>
+</body>
+
+</html>

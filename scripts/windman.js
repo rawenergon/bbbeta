@@ -1,11 +1,12 @@
 function calculateWindowSize(aspectratio) {
     if (!aspectratio) aspectratio = "9/6";
     const [widthFactor, heightFactor] = aspectratio.split('/').map(Number);
-    const aspectRatioValue = widthFactor / heightFactor;
+    const aspectRatioValue = (widthFactor && heightFactor) ? widthFactor / heightFactor : 9 / 6;
     const maxVW = 90, maxVH = 90;
+    const workArea = getDesktopWorkArea();
 
     const maxWidthPx = (window.innerWidth * maxVW) / 100;
-    const maxHeightPx = (window.innerHeight * maxVH) / 100;
+    const maxHeightPx = (workArea.height * maxVH) / 100;
     let heightPx = (maxHeightPx / 100) * 70;
     let widthPx = heightPx * aspectRatioValue;
 
@@ -14,14 +15,37 @@ function calculateWindowSize(aspectratio) {
         heightPx = widthPx / aspectRatioValue;
     }
 
-    const widthVW = (widthPx / window.innerWidth) * 100;
-    const heightVH = (heightPx / window.innerHeight) * 100;
-
     const offset = 5 * Object.keys(winds).length;
-    const left = `calc(50vw - ${widthVW / 2}vw + ${offset}px)`;
-    const top = `calc(50vh - ${heightVH / 2}vh + ${offset}px)`;
+    const left = Math.max(0, (workArea.width - widthPx) / 2 + offset);
+    const top = Math.max(0, (workArea.height - heightPx) / 2 + offset);
 
-    return { left, top, width: `${widthVW}vw`, height: `${heightVH}vh` };
+    return { left: `${left}px`, top: `${top}px`, width: `${widthPx}px`, height: `${heightPx}px` };
+}
+
+function getDesktopWorkArea() {
+    updateNavSize();
+    const bottomInset = Number(navheight) || 0;
+    return {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: Math.max(240, window.innerHeight - bottomInset),
+        bottomInset
+    };
+}
+
+function applyWindowBounds(winElement, bounds) {
+    Object.assign(winElement.style, {
+        left: `${bounds.left}px`,
+        top: `${bounds.top}px`,
+        width: `${bounds.width}px`,
+        height: `${bounds.height}px`
+    });
+}
+
+function setFullscreenButtonIcon(winElement, iconName) {
+    const button = winElement.getElementsByClassName("flbtn")[0];
+    if (button) button.innerHTML = iconName;
 }
 
 const snappingDivs = document.querySelectorAll('#snappingIndicator div');
@@ -141,7 +165,10 @@ function createHeaderControls(winuid, windowDiv) {
 
 async function applyWindowAppearance(windowDiv, header, theme, aspectratio) {
     const isMobile = matchMedia('(pointer: coarse)').matches;
-    const sizeStyles = !isMobile ? calculateWindowSize(aspectratio) : { left: '0', top: '0', width: 'calc(100% - 0px)', height: 'calc(100% - 58px)' };
+    const workArea = getDesktopWorkArea();
+    const sizeStyles = !isMobile
+        ? calculateWindowSize(aspectratio)
+        : { left: '0', top: '0', width: `${workArea.width}px`, height: `${workArea.height}px` };
     Object.assign(windowDiv.style, sizeStyles);
 
     let bgColor = await getSetting("WindowBgColor");
@@ -213,18 +240,19 @@ function attachResizeHandlers(windowDiv) {
             document.body.appendChild(iframeOverlay);
 
             function resizeMove(ev) {
+                const workArea = getDesktopWorkArea();
                 let dx = ev.clientX - startX;
                 let dy = ev.clientY - startY;
 
                 if (resizer.class.includes("right")) {
-                    let newWidth = startWidth + dx;
+                    let newWidth = Math.min(startWidth + dx, workArea.width - startLeft);
                     if (newWidth > 50) {
                         windowDiv.style.width = newWidth + "px";
                     }
                 }
 
                 if (resizer.class.includes("bottom")) {
-                    let newHeight = startHeight + dy;
+                    let newHeight = Math.min(startHeight + dy, workArea.height - startTop);
                     if (newHeight > 50) {
                         windowDiv.style.height = newHeight + "px";
                     }
@@ -232,17 +260,19 @@ function attachResizeHandlers(windowDiv) {
 
                 if (resizer.class.includes("left")) {
                     let newWidth = startWidth - dx;
-                    if (newWidth > 50) {
+                    let newLeft = Math.max(workArea.left, startLeft + dx);
+                    if (newWidth > 50 && newLeft <= startLeft + startWidth - 50) {
                         windowDiv.style.width = newWidth + "px";
-                        windowDiv.style.left = startLeft + dx + "px";
+                        windowDiv.style.left = newLeft + "px";
                     }
                 }
 
                 if (resizer.class.includes("top")) {
                     let newHeight = startHeight - dy;
-                    if (newHeight > 50) {
+                    let newTop = Math.max(workArea.top, startTop + dy);
+                    if (newHeight > 50 && newTop <= startTop + startHeight - 50) {
                         windowDiv.style.height = newHeight + "px";
-                        windowDiv.style.top = startTop + dy + "px";
+                        windowDiv.style.top = newTop + "px";
                     }
                 }
             }
@@ -267,10 +297,9 @@ function attachResizeHandlers(windowDiv) {
 
 function finalizeWindow(windowDiv, winuid) {
     document.body.appendChild(windowDiv);
-    console.log(windowDiv)
 
     const zIndexes = Object.values(winds).map(w => Number(w.zIndex) || 0);
-    const maxZ = Math.max(0, ...zIndexes);
+    const maxZ = Math.max(20, ...zIndexes);
     windowDiv.style.zIndex = maxZ + 1;
 
     putwinontop('window' + winuid);
@@ -284,7 +313,7 @@ function resetWindow(id) {
     const sizeStyles = calculateWindowSize(aspectRatio);
 
     Object.assign(x.style, sizeStyles);
-    x.getElementsByClassName("flbtn")[0].innerHTML = "open_in_full";
+    setFullscreenButtonIcon(x, "open_in_full");
 
     winds[id]["visualState"] = "free";
 
@@ -294,27 +323,27 @@ function resetWindow(id) {
 }
 
 function maximizeWindow(id) {
-    updateNavSize();
     const x = document.getElementById("window" + id);
-   suppressNudge = true;
-x.classList.add("snapping");
-    x.style.width = "calc(100% - 0px)";
-    x.style.height = "calc(100% - " + navheight + "px)";
-    x.style.top = "0";
-    x.style.left = "0";
-    x.getElementsByClassName("flbtn")[0].innerHTML = "close_fullscreen";
+    if (!x) return;
+    const workArea = getDesktopWorkArea();
+
+    suppressNudge = true;
+    x.classList.add("snapping");
+    applyWindowBounds(x, workArea);
+    setFullscreenButtonIcon(x, "close_fullscreen");
 
     winds[id]["visualState"] = "fullscreen";
 
     setTimeout(() => {
-    x.classList.remove("snapping");
-    suppressNudge = false;
-}, 1000);
+        x.classList.remove("snapping");
+        suppressNudge = false;
+    }, 1000);
 }
 
 let suppressNudge = false;
 function nudgeWindowIntoView(el) {
     if (suppressNudge || !sessionSettings.keepvisible) return;
+    const workArea = getDesktopWorkArea();
     const rect = el.getBoundingClientRect();
     const padding = 10;
     let left = el.offsetLeft;
@@ -328,8 +357,8 @@ function nudgeWindowIntoView(el) {
         left += (padding - rect.left);
         nudged = true;
     }
-    if (rect.bottom > window.innerHeight - padding) {
-        top -= (rect.bottom - window.innerHeight + padding);
+    if (rect.bottom > workArea.height - padding) {
+        top -= (rect.bottom - workArea.height + padding);
         nudged = true;
     }
     if (rect.top < padding) {
@@ -348,7 +377,7 @@ function nudgeWindowIntoView(el) {
 
 async function checksnapping(x, event, winuid) {
     if (event.target.closest('.ibtnsside')) return;
-    updateNavSize();
+    const workArea = getDesktopWorkArea();
     const [wsnappingSetting, keepVisibleSetting] = await Promise.all([
     getSetting("wsnapping"),
     getSetting("keepvisible")
@@ -360,7 +389,7 @@ sessionSettings.keepvisible = keepVisibleSetting;
         cursorX: event.clientX,
         cursorY: event.clientY,
         viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight,
+        viewportHeight: workArea.height,
         wsnappingSetting:wsnappingSetting
     };
 
@@ -369,7 +398,7 @@ sessionSettings.keepvisible = keepVisibleSetting;
     const VHInPixels = (3 * logData.viewportHeight) / 100;
     const aspectRatioValue = 9 / 6;
     const maxWidthPx = logData.viewportWidth;
-    const maxHeightPx = logData.viewportHeight;
+    const maxHeightPx = workArea.height;
     let heightPx = (maxHeightPx / 100) * 70;
     let widthPx = heightPx * aspectRatioValue;
 
@@ -399,24 +428,25 @@ sessionSettings.keepvisible = keepVisibleSetting;
             maximizeWindow(winuid);
         } else if (logData.cursorX < VWInPixels) {
             suppressNudge = true;
-x.classList.add("snapping");
-            x.style = `left: 0; top: 0; width: calc(50% - 0px); height: calc(100% - ${navheight}px);`;
-            x.getElementsByClassName("flbtn")[0].innerHTML = "open_in_full";
+            x.classList.add("snapping");
+            applyWindowBounds(x, { ...workArea, width: Math.floor(workArea.width / 2) });
+            setFullscreenButtonIcon(x, "open_in_full");
             winds[winuid]["visualState"] = "snapped";
             setTimeout(() => {
-    x.classList.remove("snapping");
-    suppressNudge = false;
-}, 1000);
+                x.classList.remove("snapping");
+                suppressNudge = false;
+            }, 1000);
         } else if ((logData.viewportWidth - logData.cursorX) < VWInPixels) {
             suppressNudge = true;
-x.classList.add("snapping");
-            x.style = `right: 0; top: 0; width: calc(50% - 0px); height: calc(100% - ${navheight}px);`;
-            x.getElementsByClassName("flbtn")[0].innerHTML = "open_in_full";
+            x.classList.add("snapping");
+            const snappedWidth = Math.floor(workArea.width / 2);
+            applyWindowBounds(x, { ...workArea, left: workArea.width - snappedWidth, width: snappedWidth });
+            setFullscreenButtonIcon(x, "open_in_full");
             winds[winuid]["visualState"] = "snapped";
             setTimeout(() => {
-    x.classList.remove("snapping");
-    suppressNudge = false;
-}, 1000);
+                x.classList.remove("snapping");
+                suppressNudge = false;
+            }, 1000);
         }
     }
 
@@ -430,9 +460,7 @@ function dragElement(elmnt) {
     let holdStart = 0;
     const snappingIndicator = document.getElementById('snappingIndicator');
     const snappingDivs = Array.from(document.querySelectorAll('.snappingDiv'));
-    console.log(elmnt.id)
     if (gid(elmnt.id + "header")) {
-        console.log(gid(elmnt.id + "header"))
         gid(elmnt.id + "header").onmousedown = dragMouseDown;
     }
 
