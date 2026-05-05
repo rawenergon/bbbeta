@@ -1405,20 +1405,23 @@ initializeOS = async function () {
 	}
 };
 
-async function updateApp(appName, attempt = 1) {
+async function updateApp(appName, attempt = 1, prefetchedContent = null) {
 	try {
-		const filePath = "appdata/" + appName + ".html";
-		const response = await fetch(filePath);
-		if (!response.ok) {
-			throw new Error("Failed to fetch file for " + appName);
+		let fileContent = prefetchedContent;
+		if (fileContent === null) {
+			const filePath = "appdata/" + appName + ".html";
+			const response = await fetch(filePath);
+			if (!response.ok) {
+				throw new Error("Failed to fetch file for " + appName);
+			}
+			fileContent = await response.text();
 		}
-		const fileContent = await response.text();
 		await createFile("Apps/", toTitleCase(appName), "app", fileContent);
 		return true;
 	} catch (error) {
 		console.error("Error updating " + appName + ":", error.message);
 		const retryLimit = (typeof maxRetries !== "undefined") ? maxRetries : 3;
-		if (attempt < retryLimit) {
+		if (attempt < retryLimit && prefetchedContent === null) {
 			return await updateApp(appName, attempt + 1);
 		} else {
 			console.error("Max retries reached for " + appName + ". Skipping update.");
@@ -1428,13 +1431,26 @@ async function updateApp(appName, attempt = 1) {
 	}
 }
 
+async function fetchDefaultAppPackages(appNames) {
+	const results = await Promise.allSettled(appNames.map(async appName => {
+		const response = await fetch("appdata/" + appName + ".html");
+		if (!response.ok) throw new Error("Failed to fetch file for " + appName);
+		return { appName, content: await response.text() };
+	}));
+	return results.map((result, index) => {
+		if (result.status === "fulfilled") return result.value;
+		return { appName: appNames[index], error: result.reason };
+	});
+}
+
 async function ensureDefaultAppsAvailable() {
 	try {
 		const installedApps = await getFileNamesByFolder("Apps");
 		const installedNames = new Set(installedApps.map(app => basename(app.name).toLowerCase()));
 		const missingApps = defAppsList.filter(appName => !installedNames.has(appName.toLowerCase()));
-		for (const appName of missingApps) {
-			await updateApp(appName);
+		const packages = await fetchDefaultAppPackages(missingApps);
+		for (const pkg of packages) {
+			if (!pkg.error) await updateApp(pkg.appName, 1, pkg.content);
 		}
 	} catch (error) {
 		console.error("Error checking default apps:", error);
@@ -1471,12 +1487,14 @@ async function installdefaultapps() {
 			gid('startupterms').innerText = hangMessages[randomIndex];
 		}, 2500);
 
-		for (let i = 0; i < defAppsList.length; i++) {
-			const appName = defAppsList[i];
+		gid('startupterms').innerText = "Loading app packages...";
+		const packages = await fetchDefaultAppPackages(defAppsList);
+		for (let i = 0; i < packages.length; i++) {
+			const { appName, content, error } = packages[i];
 			gid('startupterms').innerText = `Installing ${toTitleCase(appName)}...`;
-			const success = await updateApp(appName);
+			const success = error ? false : await updateApp(appName, 1, content);
 			if (!success) failedApps.push(appName);
-			setsrtpprgbr(Math.round((i + 1) / defAppsList.length * 100));
+			setsrtpprgbr(Math.round((i + 1) / packages.length * 100));
 		}
 		clearInterval(interval);
 

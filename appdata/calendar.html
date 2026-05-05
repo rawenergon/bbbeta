@@ -6,6 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Calendar</title>
 	<meta name="nova-include" content="nova.css material-symbols-rounded">
+	<meta name="permissions" content="unsandboxed, appStorage">
 	<meta name="nova-icon" content="<svg width='232' height='232' viewBox='0 0 232 232' fill='none' xmlns='http://www.w3.org/2000/svg'><rect width='232' height='232' rx='48' fill='#1E4D6B'/><rect x='45' y='58' width='142' height='126' rx='18' fill='#F5FAFF'/><rect x='45' y='58' width='142' height='34' rx='18' fill='#58A9D6'/><path d='M79 44v28M153 44v28' stroke='#F5FAFF' stroke-width='14' stroke-linecap='round'/><circle cx='83' cy='119' r='10' fill='#1E4D6B'/><circle cx='116' cy='119' r='10' fill='#1E4D6B'/><circle cx='149' cy='119' r='10' fill='#1E4D6B'/><circle cx='83' cy='153' r='10' fill='#58A9D6'/><circle cx='116' cy='153' r='10' fill='#1E4D6B'/></svg>">
 	<style>
 		* { box-sizing: border-box; }
@@ -44,7 +45,21 @@
 		const note = document.getElementById("note");
 		let view = new Date();
 		let selectedKey = "";
-		const notes = JSON.parse(localStorage.getItem("bbos.calendar.notes") || "{}");
+		function safeGetNotes() {
+			try {
+				return JSON.parse(localStorage.getItem("bbos.calendar.notes") || "{}");
+			} catch (error) {
+				return {};
+			}
+		}
+
+		function safeSaveNotes(value) {
+			try {
+				localStorage.setItem("bbos.calendar.notes", JSON.stringify(value));
+			} catch (error) { }
+		}
+
+		const notes = safeGetNotes();
 
 		function key(date) { return date.toISOString().slice(0, 10); }
 		function render() {
@@ -72,7 +87,7 @@
 		document.getElementById("save").onclick = () => {
 			if (!selectedKey) selectedKey = key(new Date());
 			notes[selectedKey] = note.value.trim();
-			localStorage.setItem("bbos.calendar.notes", JSON.stringify(notes));
+			safeSaveNotes(notes);
 			render();
 		};
 		render();
