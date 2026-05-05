@@ -25,13 +25,15 @@
 		label.primary { background: var(--colors-accent); color: white; border-color: transparent; }
 		input { display: none; }
 		main { min-height: 0; position: relative; background: color-mix(in srgb, var(--col-bg1) 78%, #111); }
-		iframe { width: 100%; height: 100%; border: 0; background: #2b2b2b; }
+		object, embed { width: 100%; height: 100%; border: 0; background: #2b2b2b; display: block; }
 		[hidden] { display: none !important; }
 		.empty { position: absolute; inset: 14px; border: 1px dashed color-mix(in srgb, var(--col-txt1) 20%, transparent); border-radius: 12px; display: grid; place-items: center; text-align: center; color: color-mix(in srgb, var(--col-txt1) 72%, transparent); padding: 28px; background: color-mix(in srgb, var(--col-bg2) 35%, transparent); }
 		.empty.dragover { border-color: var(--colors-accent); background: color-mix(in srgb, var(--colors-accent) 13%, var(--col-bg2)); }
 		.empty .material-symbols-rounded { font-size: 48px; color: var(--colors-accent); }
 		.empty h2 { margin: 8px 0 6px; }
 		.empty p { margin: 0; max-width: 440px; line-height: 1.45; }
+		.fallback { display: grid; gap: 10px; place-items: center; align-content: center; min-height: 100%; padding: 28px; color: var(--col-txt1); text-align: center; background: color-mix(in srgb, var(--col-bg2) 40%, transparent); }
+		.fallback p { margin: 0; opacity: .75; max-width: 430px; }
 		@media (max-width: 760px) {
 			header { grid-template-columns: 1fr; }
 			.toolbar { justify-content: flex-start; }
@@ -70,11 +72,19 @@
 				<p>Choose a local file or drag it here. The reader uses your browser PDF engine, so it stays lightweight and offline-friendly.</p>
 			</div>
 		</div>
-		<iframe id="viewer" title="PDF viewer" hidden></iframe>
+		<object id="viewer" title="PDF viewer" type="application/pdf" hidden>
+			<div class="fallback">
+				<span class="material-symbols-rounded">picture_as_pdf</span>
+				<b>Preview unavailable here</b>
+				<p>Your browser blocked embedded PDF preview in this window. Use Open tab or Download from the toolbar.</p>
+			</div>
+		</object>
 	</main>
 	<script>
 		let currentUrl = "";
 		let currentFileName = "";
+		let currentSize = 0;
+		let currentType = "application/pdf";
 		let ntxSession;
 		const viewer = document.getElementById("viewer");
 		const empty = document.getElementById("empty");
@@ -96,13 +106,34 @@
 		}
 
 		function viewerUrl() {
-			return currentUrl ? `${currentUrl}#toolbar=1&navpanes=1&zoom=${encodeURIComponent(zoom.value)}` : "";
+			return currentUrl ? `${currentUrl}#toolbar=1&navpanes=0&scrollbar=1&zoom=${encodeURIComponent(zoom.value)}` : "";
+		}
+
+		function base64ToBlob(base64, type = "application/pdf") {
+			const binary = atob(base64);
+			const bytes = new Uint8Array(binary.length);
+			for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+			return new Blob([bytes], { type });
+		}
+
+		function contentToBlob(content, fallbackType = "application/pdf") {
+			if (!content) throw new Error("PDF file has no content");
+			if (content instanceof Blob) return content;
+			if (content.startsWith("data:")) {
+				const match = content.match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+				if (!match) throw new Error("Invalid PDF data");
+				const type = match[1] || fallbackType;
+				const payload = match[3];
+				return match[2]
+					? base64ToBlob(payload, type)
+					: new Blob([decodeURIComponent(payload)], { type });
+			}
+			return base64ToBlob(content, fallbackType);
 		}
 
 		async function dataUriToFile(fileData) {
 			if (!fileData?.content) throw new Error("PDF file has no content");
-			const response = await fetch(fileData.content);
-			const blob = await response.blob();
+			const blob = contentToBlob(fileData.content, "application/pdf");
 			return new File([blob], fileData.fileName || "document.pdf", { type: blob.type || "application/pdf" });
 		}
 
@@ -110,9 +141,11 @@
 			if (currentUrl) URL.revokeObjectURL(currentUrl);
 			currentUrl = URL.createObjectURL(file);
 			currentFileName = file.name;
+			currentSize = file.size;
+			currentType = file.type || "application/pdf";
 			filename.textContent = file.name;
-			filemeta.textContent = `${formatBytes(file.size)} - ${file.type || "application/pdf"} - ${zoom.options[zoom.selectedIndex].text}`;
-			viewer.src = viewerUrl();
+			filemeta.textContent = `${formatBytes(currentSize)} - ${currentType} - ${zoom.options[zoom.selectedIndex].text}`;
+			viewer.data = viewerUrl();
 			viewer.hidden = false;
 			empty.hidden = true;
 			buttons.forEach(button => button.disabled = false);
@@ -141,8 +174,8 @@
 		document.getElementById("file").addEventListener("change", event => openFile(event.target.files[0]));
 		zoom.addEventListener("change", () => {
 			if (currentUrl) {
-				viewer.src = viewerUrl();
-				filemeta.textContent = `${currentFileName} - ${zoom.options[zoom.selectedIndex].text}`;
+				viewer.data = viewerUrl();
+				filemeta.textContent = `${formatBytes(currentSize)} - ${currentType} - ${zoom.options[zoom.selectedIndex].text}`;
 			}
 		});
 		document.getElementById("newtab").onclick = () => { if (currentUrl) window.open(viewerUrl(), "_blank"); };
@@ -157,7 +190,9 @@
 			if (currentUrl) URL.revokeObjectURL(currentUrl);
 			currentUrl = "";
 			currentFileName = "";
-			viewer.src = "";
+			currentSize = 0;
+			currentType = "application/pdf";
+			viewer.data = "";
 			viewer.hidden = true;
 			empty.hidden = false;
 			filename.textContent = "No PDF open";
